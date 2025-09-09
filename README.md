@@ -9,7 +9,7 @@ A full-stack web application for detecting phishing emails using machine learnin
 - **Domain Whitelisting**: Checks against known safe domains
 - **Risk Scoring**: Provides risk scores and classification (SAFE/PHISHING/UNSCORED)
 - **REST API**: FastAPI backend with comprehensive endpoints
-- **Modern Frontend**: Next.js React application with TypeScript
+- **Modern Frontend**: Next.js React application with TypeScript using ShadCN UI components
 - **Automated Testing**: Comprehensive test suite with pytest
 
 ## Project Structure
@@ -30,6 +30,7 @@ phishing-detect/
 ## Quick Start
 
 ### Prerequisites
+
 - Node.js 18+ and npm
 - Python 3.8+
 - Git
@@ -37,12 +38,14 @@ phishing-detect/
 ### Installation
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/mengtechdigital/phishing-detect.git
    cd phishing-detect
    ```
 
 2. **Set up the backend:**
+
    ```bash
    # Create virtual environment
    python -m venv .venv
@@ -58,6 +61,7 @@ phishing-detect/
    ```
 
 3. **Set up the frontend:**
+
    ```bash
    npm install
    ```
@@ -65,6 +69,7 @@ phishing-detect/
 4. **Start the development servers:**
 
    **Backend (Terminal 1):**
+
    ```bash
    # Activate virtual environment first
    .venv\Scripts\activate  # Windows
@@ -76,6 +81,7 @@ phishing-detect/
    ```
 
    **Frontend (Terminal 2):**
+
    ```bash
    npm run dev
    ```
@@ -85,14 +91,23 @@ phishing-detect/
    - API Docs: [http://localhost:8000/api/py/docs](http://localhost:8000/api/py/docs)
    - API Health: [http://localhost:8000/api/py/health](http://localhost:8000/api/py/health)
 
+## Available Scripts
+
+To maintain code quality, you can use the following npm scripts:
+
+- `npm run format`: Format the codebase using Prettier
+- `npm run lint`: Lint the codebase using ESLint
+
 ## API Usage
 
 ### Analyze Email File
+
 ```bash
 curl -F "file=@sample.eml" http://localhost:8000/api/py/analyze/eml
 ```
 
 **Response:**
+
 ```json
 {
   "risk": 0.4,
@@ -109,6 +124,7 @@ curl -F "file=@sample.eml" http://localhost:8000/api/py/analyze/eml
 ## Testing
 
 Run the test suite:
+
 ```bash
 # Activate virtual environment
 .venv\Scripts\activate  # Windows

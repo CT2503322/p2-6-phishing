@@ -1,18 +1,21 @@
 # Setup Guide
 
 ## Prerequisites
+
 - Python 3.8 or higher
 - Git
 
 ## Installation Steps
 
 1. **Clone the repository:**
+
    ```bash
    git clone https://github.com/busyclasher/phishing-detect.git
    cd phishing-detect
    ```
 
 2. **Create a virtual environment:**
+
    ```bash
    python -m venv .venv
    ```
@@ -20,26 +23,31 @@
 3. **Activate the virtual environment:**
 
    **Windows:**
+
    ```bash
    .venv\Scripts\activate
    ```
 
    **Linux/macOS:**
+
    ```bash
    source .venv/bin/activate
    ```
 
    **Note:** On Windows, you may need to use the full path if the command doesn't work:
+
    ```bash
    C:\Users\your-username\path\to\project\.venv\Scripts\activate
    ```
 
 4. **Install dependencies:**
+
    ```bash
    pip install -r requirements.txt
    ```
 
 5. **Start the backend development server:**
+
    ```bash
    uvicorn backend.api.index:app --reload --port 8000
    ```
@@ -58,16 +66,19 @@ To make your environment reproducible, freeze the installed packages into `requi
 1. **Activate your virtual environment:**
 
    **Windows:**
+
    ```bash
    .venv\Scripts\activate
    ```
 
    **Linux/macOS:**
+
    ```bash
    source .venv/bin/activate
    ```
 
 2. **Freeze packages:**
+
    ```bash
    pip freeze > requirements.txt
    ```
@@ -75,6 +86,7 @@ To make your environment reproducible, freeze the installed packages into `requi
    This will overwrite `requirements.txt` with the exact versions currently installed.
 
 3. **Add to Git:**
+
    ```bash
    git add requirements.txt
    git commit -m "chore: update requirements.txt with current venv packages"
@@ -97,6 +109,7 @@ pipreqs . --force
 ## Verification
 
 Once the server is running, you can verify it's working by visiting:
+
 - **API Health Check:** `http://localhost:8000/api/py/health`
 - **API Documentation:** `http://localhost:8000/api/py/docs` (FastAPI auto-generated docs)
 

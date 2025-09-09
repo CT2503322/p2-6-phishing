@@ -3,21 +3,22 @@
 ## API Testing with cURL
 
 ### Health Check
+
 ```bash
 curl -s http://localhost:8000/api/py/health
 ```
 
 ### Analyze EML File
+
 ```bash
 curl -F "file=@path/to/any.eml" http://localhost:8000/api/py/analyze/eml
 ```
 
 **Response Format:**
+
 ```json
 {
-  "risk": 0.4,
   "label": "SAFE",
-  "reasons": ["KEYWORDS"],
   "meta": {
     "keywords": [
       {
@@ -32,7 +33,9 @@ curl -F "file=@path/to/any.eml" http://localhost:8000/api/py/analyze/eml
       "Subject": "..."
     },
     "subject": "..."
-  }
+  },
+  "reasons": ["KEYWORDS"],
+  "risk": 0.4
 }
 ```
 
@@ -49,6 +52,7 @@ curl -F "file=@path/to/any.eml" http://localhost:8000/api/py/analyze/eml
 ## Scoring Logic
 
 The system uses a combination of:
+
 - **Keyword Analysis**: Detects suspicious words/phrases in subject and body
 - **Domain Whitelisting**: Reduces risk score for emails from trusted domains
 - **Threshold-based Classification**:
@@ -57,6 +61,7 @@ The system uses a combination of:
   - `risk >= 1.0`: Label = "PHISHING"
 
 ## Notes
+
 - Only `.eml` files are supported
 - The API validates that uploaded files contain valid email format (422 error for corrupted files)
 - The API parses email headers, subject, and body content
