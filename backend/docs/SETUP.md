@@ -10,8 +10,8 @@
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/busyclasher/phishing-detect.git
-   cd phishing-detect
+   git clone https://github.com/CT2503322/p2-6-phishing.git
+   cd p2-6-phishing
    ```
 
 2. **Create a virtual environment:**

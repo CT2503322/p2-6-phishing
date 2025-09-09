@@ -1,5 +1,5 @@
 [project]
-name = "phishing-detect"
+name = "p2-6-phishing"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"

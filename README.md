@@ -15,7 +15,7 @@ A full-stack web application for detecting phishing emails using machine learnin
 ## Project Structure
 
 ```
-phishing-detect/
+p2-6-phishing/
 ├── app/                    # Next.js frontend
 ├── backend/                # FastAPI backend
 │   ├── api/               # API endpoints
@@ -40,8 +40,8 @@ phishing-detect/
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/mengtechdigital/phishing-detect.git
-   cd phishing-detect
+   git clone https://github.com/CT2503322/p2-6-phishing.git
+   cd p2-6-phishing
    ```
 
 2. **Set up the backend:**

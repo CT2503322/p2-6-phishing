@@ -19,7 +19,7 @@ python -m pytest backend/tests/test_core.py -v
 python -m pytest backend/tests/test_ingestion.py -v
 ```
 
-**Note:** Tests should be run from the project root directory (`phishing-detect/`) to ensure proper module imports.
+**Note:** Tests should be run from the project root directory (`p2-6-phishing/`) to ensure proper module imports.
 
 ## Test Coverage
 
