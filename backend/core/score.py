@@ -46,6 +46,10 @@ def analyze(
     kw_res = check_keywords(subject, body)
     wl_res = check_whitelist(subject, body, html)
 
+    # Extract domains from all content
+    all_content = subject + "\n" + body + "\n" + html
+    domains = extract_domains(all_content)
+
     # Aggregate score
     score = kw_res["score"]
     if wl_res["whitelisted"]:
@@ -62,9 +66,49 @@ def analyze(
     else:
         label = "SAFE"
 
+    # Extract key headers for display
+    key_headers = {
+        "from": headers.get("From", ""),
+        "to": headers.get("To", ""),
+        "cc": headers.get("Cc", ""),
+        "bcc": headers.get("Bcc", ""),
+        "date": headers.get("Date", ""),
+        "reply_to": headers.get("Reply-To", ""),
+        "return_path": headers.get("Return-Path", ""),
+        "message_id": headers.get("Message-ID", ""),
+        "content_type": headers.get("Content-Type", ""),
+    }
+
+    # Create body preview (first 500 characters)
+    body_preview = body[:500] + ("..." if len(body) > 500 else "")
+
+    # Create HTML preview if present
+    html_preview = ""
+    if html:
+        # Strip HTML tags for preview
+        import re
+
+        html_clean = re.sub(r"<[^>]+>", "", html)
+        html_preview = html_clean[:500] + ("..." if len(html_clean) > 500 else "")
+
     return {
         "risk": round(score, 2),
         "label": label,
         "reasons": reasons,
-        "meta": {**kw_res["meta"], "headers": headers, "subject": subject},
+        "meta": {
+            **kw_res["meta"],
+            "headers": headers,
+            "key_headers": key_headers,
+            "subject": subject,
+            "body_preview": body_preview,
+            "html_preview": html_preview,
+            "domains": list(domains),
+            "whitelisted_domains": [d for d in domains if is_whitelisted(d, wl)],
+            "content_stats": {
+                "body_length": len(body),
+                "html_length": len(html),
+                "has_html": bool(html),
+                "domain_count": len(domains),
+            },
+        },
     }

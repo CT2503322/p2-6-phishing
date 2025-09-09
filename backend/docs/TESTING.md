@@ -6,7 +6,9 @@ The project includes automated tests for the API endpoints using pytest.
 
 ```bash
 # Activate virtual environment (if not already activated)
-.venv\Scripts\activate  # Windows
+.venv\Scripts\activate  # Windows (Command Prompt)
+# or
+source .venv/Scripts/activate  # Windows (Git Bash)
 # or
 source .venv/bin/activate  # Linux/macOS
 

@@ -22,22 +22,22 @@
 
 3. **Activate the virtual environment:**
 
-   **Windows:**
+   **Windows (Command Prompt):**
 
    ```bash
    .venv\Scripts\activate
+   ```
+
+   **Windows (Git Bash):**
+
+   ```bash
+   source .venv/Scripts/activate
    ```
 
    **Linux/macOS:**
 
    ```bash
    source .venv/bin/activate
-   ```
-
-   **Note:** On Windows, you may need to use the full path if the command doesn't work:
-
-   ```bash
-   C:\Users\your-username\path\to\project\.venv\Scripts\activate
    ```
 
 4. **Install dependencies:**
@@ -65,10 +65,16 @@ To make your environment reproducible, freeze the installed packages into `requi
 
 1. **Activate your virtual environment:**
 
-   **Windows:**
+   **Windows (Command Prompt):**
 
    ```bash
    .venv\Scripts\activate
+   ```
+
+   **Windows (Git Bash):**
+
+   ```bash
+   source .venv/Scripts/activate
    ```
 
    **Linux/macOS:**

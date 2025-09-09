@@ -51,8 +51,10 @@ p2-6-phishing/
    python -m venv .venv
 
    # Activate virtual environment
-   # Windows:
+   # Windows (Command Prompt):
    .venv\Scripts\activate
+   # Windows (Git Bash):
+   source .venv/Scripts/activate
    # Linux/macOS:
    source .venv/bin/activate
 
@@ -72,7 +74,9 @@ p2-6-phishing/
 
    ```bash
    # Activate virtual environment first
-   .venv\Scripts\activate  # Windows
+   .venv\Scripts\activate  # Windows (Command Prompt)
+   # or
+   source .venv/Scripts/activate  # Windows (Git Bash)
    # or
    source .venv/bin/activate  # Linux/macOS
 
@@ -127,7 +131,9 @@ Run the test suite:
 
 ```bash
 # Activate virtual environment
-.venv\Scripts\activate  # Windows
+.venv\Scripts\activate  # Windows (Command Prompt)
+# or
+source .venv/Scripts/activate  # Windows (Git Bash)
 # or
 source .venv/bin/activate  # Linux/macOS
 
