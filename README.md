@@ -9,29 +9,37 @@ A full-stack web application for detecting phishing emails using machine learnin
 - **Domain Whitelisting**: Checks against known safe domains
 - **Risk Scoring**: Provides risk scores and classification (SAFE/PHISHING/UNSCORED)
 - **REST API**: FastAPI backend with comprehensive endpoints
-- **Modern Frontend**: Next.js React application with TypeScript using ShadCN UI components
+- **Modern Frontend**: Streamlit web application for easy email analysis
 - **Automated Testing**: Comprehensive test suite with pytest
 
 ## Project Structure
 
 ```
 p2-6-phishing/
-├── app/                    # Next.js frontend
-├── backend/                # FastAPI backend
+├── main.py                # Streamlit application entry point
+├── ui/                    # Streamlit frontend (modular)
+│   ├── app.py            # Main application logic
+│   ├── api/              # API client functions
+│   │   └── client.py
+│   ├── components/       # Reusable UI components
+│   │   ├── file_uploader.py
+│   │   └── analysis_results.py
+│   └── utils/            # Utility functions
+│       └── helpers.py
+├── backend/               # FastAPI backend
 │   ├── api/               # API endpoints
 │   ├── core/              # Core analysis logic
 │   ├── docs/              # Documentation
 │   ├── ingestion/         # Email parsing utilities
 │   └── tests/             # Test suite
-├── public/                # Static assets
-└── requirements.txt       # Python dependencies
+├── requirements.txt       # Python dependencies
+└── README.md              # This file
 ```
 
 ## Quick Start
 
 ### Prerequisites
 
-- Node.js 18+ and npm
 - Python 3.8+
 - Git
 
@@ -62,13 +70,7 @@ p2-6-phishing/
    pip install -r requirements.txt
    ```
 
-3. **Set up the frontend:**
-
-   ```bash
-   npm install
-   ```
-
-4. **Start the development servers:**
+3. **Start the development servers:**
 
    **Backend (Terminal 1):**
 
@@ -87,27 +89,36 @@ p2-6-phishing/
    **Frontend (Terminal 2):**
 
    ```bash
-   npm run dev
+   # Activate virtual environment first
+   .venv\Scripts\activate  # Windows (Command Prompt)
+   # or
+   source .venv/Scripts/activate  # Windows (Git Bash)
+   # or
+   source .venv/bin/activate  # Linux/macOS
+
+   # Start the Streamlit app
+   streamlit run main.py
    ```
 
-5. **Access the application:**
-   - Frontend: [http://localhost:3000](http://localhost:3000)
-   - API Docs: [http://localhost:8000/api/py/docs](http://localhost:8000/api/py/docs)
-   - API Health: [http://localhost:8000/api/py/health](http://localhost:8000/api/py/health)
+4. **Access the application:**
+   - Frontend: [http://localhost:8501](http://localhost:8501)
+   - API Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+   - API Health: [http://localhost:8000/health](http://localhost:8000/health)
 
 ## Available Scripts
 
-To maintain code quality, you can use the following npm scripts:
+To maintain code quality, you can use the following commands:
 
-- `npm run format`: Format the codebase using Prettier
-- `npm run lint`: Lint the codebase using ESLint
+- **Run tests**: `python -m pytest backend/tests/ -v`
+- **Start backend**: `uvicorn backend.api.index:app --reload --port 8000`
+- **Start frontend**: `streamlit run main.py`
 
 ## API Usage
 
 ### Analyze Email File
 
 ```bash
-curl -F "file=@sample.eml" http://localhost:8000/api/py/analyze/eml
+curl -F "file=@sample.eml" http://localhost:8000/analyze/eml
 ```
 
 **Response:**
@@ -149,7 +160,7 @@ python -m pytest backend/tests/ -v
 
 ## Deployment
 
-The application is configured for deployment on Vercel with the backend API deployed separately.
+The Streamlit frontend can be deployed on platforms like Streamlit Cloud, Heroku, or AWS. The FastAPI backend can be deployed separately on cloud platforms supporting Python applications.
 
 ## Contributing
 

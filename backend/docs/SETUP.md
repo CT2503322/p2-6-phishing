@@ -52,9 +52,10 @@
    uvicorn backend.api.index:app --reload --port 8000
    ```
 
-6. **Start the frontend development server (in a new terminal):**
+6. **Start the Streamlit frontend (in a new terminal):**
+
    ```bash
-   npm run dev
+   streamlit run main.py
    ```
 
 ## Managing Dependencies

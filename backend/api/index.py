@@ -12,17 +12,17 @@ from email.parser import BytesParser
 app = FastAPI(
     title="Phish Detector API",
     version="0.0.3",
-    docs_url="/api/py/docs",
-    openapi_url="/api/py/openapi.json",
+    docs_url="/docs",
+    openapi_url="/openapi.json",
 )
 
 
-@app.get("/api/py/health")
+@app.get("/health")
 def health():
     return {"ok": True}
 
 
-@app.post("/api/py/analyze/eml")
+@app.post("/analyze/eml")
 async def analyze_eml(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".eml"):
         raise HTTPException(status_code=400, detail="Only .eml files are supported")
