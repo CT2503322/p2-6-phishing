@@ -33,12 +33,10 @@ def test_analyze_eml_valid():
     )
     assert response.status_code == 200
     data = response.json()
-    assert "risk" in data
-    assert "label" in data
+    assert "final_score" in data
     assert "reasons" in data
-    assert "meta" in data
-    assert isinstance(data["risk"], float)
-    assert data["label"] in ["SAFE", "PHISHING", "UNSCORED"]
+    assert "keyword_analysis" in data
+    assert isinstance(data["final_score"], float)
 
 
 def test_analyze_eml_corrupted():

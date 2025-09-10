@@ -1,6 +1,7 @@
 import pytest
 from backend.ingestion.models import (
     Attachment,
+    WhitelistHit,
     MimePart,
     HtmlMetrics,
     TextMetrics,
@@ -346,6 +347,40 @@ class TestKeywordHit:
         assert hit.where == "subject"
         assert hit.pos == 10
         assert hit.window == "subject_0_50"
+
+
+class TestWhitelistHit:
+    """Test cases for WhitelistHit dataclass."""
+
+    def test_whitelist_hit_creation(self):
+        """Test basic WhitelistHit creation."""
+        hit = WhitelistHit(
+            matched_domain="example.com",
+            scope="exact",
+            reason="manual-whitelist",
+        )
+        assert hit.matched_domain == "example.com"
+        assert hit.scope == "exact"
+        assert hit.reason == "manual-whitelist"
+
+    def test_whitelist_hit_valid_scopes(self):
+        """Test WhitelistHit with all valid scopes."""
+        for scope in ["exact", "apex", "subdomain"]:
+            hit = WhitelistHit(
+                matched_domain="example.com",
+                scope=scope,
+                reason="test",
+            )
+            assert hit.scope == scope
+
+    def test_whitelist_hit_invalid_scope(self):
+        """Test WhitelistHit with invalid scope raises ValueError."""
+        with pytest.raises(ValueError, match="Invalid scope"):
+            WhitelistHit(
+                matched_domain="example.com",
+                scope="invalid",
+                reason="test",
+            )
 
 
 class TestSubscriptionMetadata:

@@ -87,6 +87,10 @@ def render_analysis_results(result: Dict[str, Any]):
     if "url_findings" in result and result["url_findings"]:
         render_url_findings_results(result["url_findings"])
 
+    # Whitelist Hits
+    if "whitelist_hit" in result and result["whitelist_hit"]:
+        render_whitelist_hit_results(result["whitelist_hit"])
+
     # Detailed Keyword Analysis
     if "keyword_analysis" in result:
         render_keyword_analysis_results(result["keyword_analysis"])
@@ -1657,3 +1661,147 @@ def render_attachment_findings_results(attachment_findings: list):
 
         for item in summary_items:
             st.write(item)
+
+
+def render_whitelist_hit_results(whitelist_hits: list):
+    """
+    Render the whitelist hit results in a user-friendly format.
+
+    Args:
+        whitelist_hits: List of whitelist hit findings from the analysis
+    """
+    if not whitelist_hits:
+        return
+
+    with st.expander("Whitelist Analysis", expanded=True):
+        st.markdown("**Whitelist Hit Analysis**")
+        st.markdown(
+            "Domains found in the email that match configured whitelisted domains:"
+        )
+
+        # Summary metrics
+        total_hits = len(whitelist_hits)
+        exact_hits = sum(1 for hit in whitelist_hits if hit.get("scope") == "exact")
+        apex_hits = sum(1 for hit in whitelist_hits if hit.get("scope") == "apex")
+        subdomain_hits = sum(
+            1 for hit in whitelist_hits if hit.get("scope") == "subdomain"
+        )
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Total Hits", total_hits)
+        with col2:
+            st.metric("Exact Matches", exact_hits)
+        with col3:
+            st.metric("Apex Hits", apex_hits)
+        with col4:
+            st.metric("Subdomain Hits", subdomain_hits)
+
+        # Individual whitelist hits
+        for i, hit in enumerate(whitelist_hits, 1):
+            matched_domain = hit.get("matched_domain", "N/A")
+            scope = hit.get("scope", "N/A")
+            reason = hit.get("reason", "N/A")
+
+            # Color coding based on scope
+            if scope == "exact":
+                st.success(f"**EXACT MATCH** - Whitelist Hit {i}")
+            elif scope == "apex":
+                st.info(f"**APEX HIT** - Whitelist Hit {i}")
+            elif scope == "subdomain":
+                st.warning(f"**SUBDOMAIN HIT** - Whitelist Hit {i}")
+            else:
+                st.error(f"**UNKNOWN SCOPE** - Whitelist Hit {i}")
+
+            # Display whitelist hit details
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                st.markdown("**Matched Domain:**")
+                st.code(matched_domain)
+
+                st.markdown("**Reason:**")
+                st.code(reason)
+
+                # Scope description
+                if scope == "exact":
+                    st.markdown("**Match Type:** Exact domain match")
+                elif scope == "apex":
+                    st.markdown(
+                        "**Match Type:** Apex domain coverage (includes subdomains)"
+                    )
+                elif scope == "subdomain":
+                    st.markdown("**Match Type:** Subdomain of whitelisted domain")
+                else:
+                    st.markdown(f"**Match Type:** {scope}")
+
+            with col2:
+                st.markdown("**Scope:**")
+                if scope == "exact":
+                    st.success("Exact")
+                elif scope == "apex":
+                    st.info("Apex")
+                elif scope == "subdomain":
+                    st.warning("Subdomain")
+                else:
+                    st.error("Unknown")
+
+                # Security implication
+                st.markdown("**Implication:**")
+                if scope == "exact":
+                    st.info("Trusted Domain")
+                elif scope == "apex":
+                    st.info("Trusted Organization")
+                elif scope == "subdomain":
+                    st.warning("Trusted Subdomain")
+                else:
+                    st.error("Unknown Trust Level")
+
+            # Separator between hits
+            if i < len(whitelist_hits):
+                st.markdown("---")
+
+        # Overall summary
+        st.markdown("---")
+        st.markdown("**Whitelist Analysis Summary**")
+
+        summary_items = []
+
+        if total_hits > 0:
+            summary_items.append(f"{total_hits} whitelisted domain hit(s) detected")
+        else:
+            summary_items.append("No whitelisted domains detected")
+
+        if exact_hits > 0:
+            summary_items.append(f"{exact_hits} exact whitelist matches")
+        if apex_hits > 0:
+            summary_items.append(
+                f"{apex_hits} apex domain matches (subdomains trusted)"
+            )
+        if subdomain_hits > 0:
+            summary_items.append(f"{subdomain_hits} subdomain matches")
+
+        # Extract unique reasons
+        reasons = set(
+            hit.get("reason", "N/A")
+            for hit in whitelist_hits
+            if hit.get("reason") != "N/A"
+        )
+        if reasons:
+            reason_list = ", ".join(sorted(reasons))
+            summary_items.append(f"Whitelist sources: {reason_list}")
+
+        for item in summary_items:
+            st.write(f"• {item}")
+
+        # Technical notes
+        with st.expander("ℹTechnical Details", expanded=False):
+            st.markdown(
+                """
+            **Whitelist Scope Definitions:**
+            - **Exact**: Exact domain match only
+            - **Apex**: Root domain allows all subdomains
+            - **Subdomain**: Specific subdomain allowed
+            - **Reason**: Source or category of the whitelist entry
+            """
+            )

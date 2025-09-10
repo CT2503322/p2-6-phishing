@@ -142,6 +142,17 @@ class AttachmentFinding:
 
 
 @dataclass
+class WhitelistHit:
+    matched_domain: str
+    scope: str  # 'exact' | 'apex' | 'subdomain'
+    reason: str
+
+    def __post_init__(self):
+        if self.scope not in {"exact", "apex", "subdomain"}:
+            raise ValueError(f"Invalid scope: {self.scope}")
+
+
+@dataclass
 class SubscriptionMetadata:
     list_unsubscribe: Optional[ListUnsubscribe] = None
     list_unsubscribe_post: Optional[str] = None

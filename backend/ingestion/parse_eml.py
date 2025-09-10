@@ -5,11 +5,13 @@ import os
 import base64
 from dataclasses import asdict
 from email.message import EmailMessage
+from urllib.parse import urlparse
 from .mime import MultiPartParser
 from .headers import HeaderNormalizer, get_date
 from .addresses import AddressUtils
 from .models import (
     Attachment,
+    WhitelistHit,
     InlineImage,
     RoutingHop,
     RoutingData,
@@ -17,6 +19,7 @@ from .models import (
 from .body_cleaner import get_cleaned_body_text, get_cleaned_body_html
 from .metrics import extract_html_metrics, extract_text_metrics
 from .attachment_analysis import AttachmentAnalyzer
+from ..core.whitelist import check_whitelist_hit, load_whitelist
 
 
 class EmlReader:
@@ -234,6 +237,16 @@ def eml_to_parts(msg: EmailMessage) -> Dict[str, Any]:
     # Extract routing data
     routing_data = extract_routing_data(msg)
 
+    # Extract domains and check whitelist
+    wl = load_whitelist()
+    whitelist_hit = []
+    all_content = subject + "\n" + text + "\n" + html
+    domains = extract_domains(all_content)
+    for domain in domains:
+        hits = check_whitelist_hit(domain, wl)
+        if hits:
+            whitelist_hit.extend(hits)
+
     return {
         "subject": subject,
         "text_body": text,  # Plain text body for keyword analysis
@@ -244,6 +257,7 @@ def eml_to_parts(msg: EmailMessage) -> Dict[str, Any]:
         "attachments": [asdict(att) for att in attachments],
         "attachment_findings": [asdict(finding) for finding in attachment_findings],
         "routing_data": asdict(routing_data),
+        "whitelist_hit": [asdict(hit) for hit in whitelist_hit],
     }
 
 
@@ -398,6 +412,54 @@ def extract_routing_data(msg: EmailMessage) -> RoutingData:
 
 # Pre-compile regex for CID replacement
 CID_PATTERN = re.compile(r'src=["\']cid:([^"\']+)["\']', re.IGNORECASE)
+
+
+def check_whitelist_hit(
+    domain: str, wl: set[str], reason: str = "manual-whitelist"
+) -> Optional[list]:
+    """
+    Check if domain is whitelisted and return hit details.
+
+    Args:
+        domain: Domain to check
+        wl: Whitelist set
+        reason: Reason for whitelist hit
+
+    Returns:
+        WhitelistHit if matched, None otherwise
+    """
+    from backend.core.whitelist import check_whitelist_hit as orig_check
+
+    return orig_check(domain, wl, reason)
+
+
+def extract_domains(text: str) -> set[str]:
+    """
+    Extract domains from URLs in text.
+
+    Args:
+        text: Input text containing URLs
+
+    Returns:
+        Set of unique domains in lowercase
+    """
+    if not text:
+        return set()
+
+    # Pre-compile regex for efficiency
+    URL_PATTERN = re.compile(r"https?://[^\s]+")
+    domains = set()
+    urls = URL_PATTERN.findall(text)
+    for url in urls:
+        try:
+            parsed = urlparse(url)
+            domain = parsed.netloc.lower()
+            if domain:
+                domains.add(domain)
+        except Exception:
+            # Skip malformed URLs
+            continue
+    return domains
 
 
 def get_message_html_with_inline_images(

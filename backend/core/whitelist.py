@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
-from typing import Set
+from typing import Set, Optional
+from ..ingestion.models import WhitelistHit
 
 
 def normalize_domain(domain: str) -> str:
@@ -55,3 +56,71 @@ def is_whitelisted(domain: str, wl: Set[str]) -> bool:
         True if domain is whitelisted
     """
     return normalize_domain(domain) in wl
+
+
+def determine_scope(normalized_domain: str, matched_domain: str) -> str:
+    """
+    Determine the scope of the whitelist match.
+
+    Args:
+        normalized_domain: The domain being checked (normalized)
+        matched_domain: The whitelisted domain that matched (normalized)
+
+    Returns:
+        'exact' | 'apex' | 'subdomain'
+    """
+    if normalized_domain == matched_domain:
+        return "exact"
+
+    norm_parts = normalized_domain.split(".")
+    matched_parts = matched_domain.split(".")
+
+    if len(norm_parts) > len(matched_parts):
+        return "apex"  # matched is apex for domain
+    else:
+        return "subdomain"  # matched is subdomain of domain or same
+
+
+def check_whitelist_hit(
+    domain: str, wl: Set[str], reason: str = "manual-whitelist"
+) -> Optional[list[WhitelistHit]]:
+    """
+    Check if domain is whitelisted and return hit details.
+
+    Args:
+        domain: Domain to check
+        wl: Whitelist set
+        reason: Reason for whitelist hit
+
+    Returns:
+        WhitelistHit if matched, None otherwise
+    """
+    normalized = normalize_domain(domain)
+    if not normalized:
+        return None
+
+    matching = []
+    for whitelist_domain in wl:
+        if normalized == whitelist_domain:
+            scope = determine_scope(normalized, whitelist_domain)
+            matching.append(
+                WhitelistHit(
+                    matched_domain=whitelist_domain, scope=scope, reason=reason
+                )
+            )
+        elif normalized.endswith("." + whitelist_domain):
+            scope = determine_scope(normalized, whitelist_domain)
+            matching.append(
+                WhitelistHit(
+                    matched_domain=whitelist_domain, scope=scope, reason=reason
+                )
+            )
+        elif whitelist_domain.endswith("." + normalized):
+            scope = determine_scope(normalized, whitelist_domain)
+            matching.append(
+                WhitelistHit(
+                    matched_domain=whitelist_domain, scope=scope, reason=reason
+                )
+            )
+
+    return matching if matching else None
