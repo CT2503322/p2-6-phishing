@@ -4,12 +4,14 @@ A full-stack web application for detecting phishing emails using machine learnin
 
 ## Features
 
-- **Email Analysis**: Upload and analyze `.eml` files for phishing indicators
-- **Keyword Detection**: Identifies suspicious keywords in email content
-- **Domain Whitelisting**: Checks against known safe domains
+- **Email Analysis**: Upload and analyze `.eml` files with comprehensive phishing detection
+- **Multi-layered Detection**: Keyword detection, domain whitelisting, MIME parsing, authentication checks
+- **HTML and Attachment Processing**: Handles complex email structures including HTML content and attachments
+- **Sender Identity Analysis**: Validates sender information and email headers
+- **Comprehensive Metrics**: Detailed analysis metrics and scoring algorithms
 - **REST API**: FastAPI backend with `/health` and `/analyze/eml` endpoints
-- **Modern Frontend**: Streamlit web application for easy email analysis
-- **Automated Testing**: Comprehensive test suite with pytest and sample files
+- **Modern Frontend**: Streamlit web application with multiple UI components for easy analysis
+- **Automated Testing**: Extensive test suite with pytest, fixtures, and integration testing
 
 See [TODO.md](TODO.md) for detailed development roadmap.
 
@@ -17,8 +19,8 @@ See [TODO.md](TODO.md) for detailed development roadmap.
 
 ```
 p2-6-phishing/
-├── main.py                # Streamlit application launcher
 ├── app.py                 # Main Streamlit application logic
+├── main.py                # Streamlit application launcher
 ├── backend/               # FastAPI backend
 │   ├── api/               # API endpoints
 │   │   └── index.py       # Main API router with /health and /analyze/eml
@@ -33,18 +35,58 @@ p2-6-phishing/
 │   │   ├── SETUP.md       # Setup guide
 │   │   └── TESTING.md     # Testing guide
 │   ├── ingestion/         # Email parsing utilities
-│   │   └── parse_eml.py   # EML file parsing
-│   └── tests/             # Test suite
-│       ├── test_api.py    # API tests
-│       ├── test_core.py   # Core logic tests
-│       ├── test_ingestion.py # Ingestion tests
-│       └── samples/       # Test sample files
-│           ├── tada.eml    # Sample email
-│           ├── tada-corrupted.eml # Corrupted email sample
-│           └── tada.pdf    # Sample PDF
-├── legacy/                # Legacy repositories
-│   ├── old-busyclasher-repo/ # Previous version
-│   └── old-p2-6-phishing-repo/ # Original version
+│   │   ├── __init__.py    # Package initialization
+│   │   ├── addresses.py   # Address processing
+│   │   ├── auth_parser.py # Authentication header parsing
+│   │   ├── body_cleaner.py # Email body cleaning
+│   │   ├── error_policy.py # Error handling policies
+│   │   ├── headers.py     # Header processing utilities
+│   │   ├── metrics.py     # Analysis metrics calculation
+│   │   ├── mime.py        # MIME type handling
+│   │   ├── models.py      # Data models for email processing
+│   │   ├── parse_eml.py   # EML file parsing
+│   │   └── sender_identity.py # Sender identity analysis
+│   ├── tests/             # Comprehensive test suite
+│   │   ├── __init__.py
+│   │   ├── fixtures/      # Test fixture files
+│   │   │   ├── alt.eml
+│   │   │   ├── attachment_pdf.eml
+│   │   │   ├── auth_headers.eml
+│   │   │   ├── broken_headers.eml
+│   │   │   ├── html.eml
+│   │   │   ├── plain.eml
+│   │   │   ├── related_cid.eml
+│   │   │   ├── tada-corrupted.eml
+│   │   │   ├── tada.eml
+│   │   │   └── tada.pdf
+│   │   ├── test_addresses.py
+│   │   ├── test_api.py
+│   │   ├── test_attachments.py
+│   │   ├── test_auth_parser.py
+│   │   ├── test_body_cleaner.py
+│   │   ├── test_body.py
+│   │   ├── test_cid.py
+│   │   ├── test_core.py
+│   │   ├── test_fixtures.py
+│   │   ├── test_headers.py
+│   │   ├── test_inline_images.py
+│   │   ├── test_mime_metrics.py
+│   │   ├── test_reader.py
+│   │   ├── test_sender_identity_integration.py
+│   │   └── test_sender_identity.py
+├── backend/
+│   └── eml_extractor.py   # Email extraction utilities
+├── frontend/
+│   └── ui/                # Streamlit frontend components
+│       ├── __init__.py
+│       ├── analysis_results.py
+│       ├── api_client.py
+│       ├── components.py
+│       ├── config.py
+│       ├── email_display.py
+│       ├── file_uploader.py
+│       ├── file_validator.py
+│       └── sidebar.py
 ├── .gitignore             # Git ignore rules
 ├── requirements.txt       # Python dependencies
 ├── TODO.md                # Development roadmap
@@ -167,18 +209,7 @@ source .venv/bin/activate  # Linux/macOS
 python -m pytest backend/tests/ -v
 ```
 
-The test suite includes sample `.eml` files in `backend/tests/samples/` for testing various scenarios including corrupted emails and different file formats.
-
-## Development Status
-
-This project is actively developed with a focus on expanding phishing detection capabilities. The current implementation provides a solid foundation with core analysis features, while the roadmap includes advanced security checks and performance optimizations.
-
-### Legacy Code
-The `legacy/` directory contains previous versions of the project:
-- `old-busyclasher-repo/`: Earlier iteration with different architecture
-- `old-p2-6-phishing-repo/`: Original implementation
-
-These are preserved for reference but are not actively maintained.
+The test suite includes sample `.eml` files in `backend/tests/fixtures/` for testing various scenarios including corrupted emails and different file formats.
 
 ## Documentation
 
