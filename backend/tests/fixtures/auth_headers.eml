@@ -1,0 +1,20 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Email with Authentication Headers
+Date: Wed, 21 Oct 2015 07:28:00 -0700
+Received: by mail.example.com id abc123; Wed, 21 Oct 2015 07:28:00 -0700
+Authentication-Results: mail.example.com;
+	dkim=pass header.i=@example.com header.s=default header.b=abc123;
+	spf=pass (mail.example.com: domain of sender@example.com designates 192.168.1.1 as permitted sender) smtp.mailfrom=sender@example.com;
+	dmarc=pass (p=quarantine dis=none) header.from=sender@example.com
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=example.com;
+	s=default; h=from:to:subject:date;
+	bh=abc123def456; b=signature_here
+ARC-Authentication-Results: i=1; mail.example.com;
+	dkim=pass header.i=@example.com header.s=default header.b=abc123;
+	spf=pass smtp.mailfrom=sender@example.com
+ARC-Seal: i=1; a=rsa-sha256; t=1445412480; cv=none;
+	d=example.com; s=arc-20160816; b=seal_here
+Content-Type: text/plain; charset=utf-8
+
+This email has authentication headers for testing DKIM, SPF, and DMARC validation.

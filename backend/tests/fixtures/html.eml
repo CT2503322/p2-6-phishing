@@ -1,0 +1,16 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: HTML Email
+Date: Wed, 21 Oct 2015 07:28:00 -0700
+Content-Type: text/html; charset=utf-8
+
+<html>
+<body>
+<h1>This is an HTML Email</h1>
+<p>This email contains <strong>HTML formatting</strong>.</p>
+<ul>
+<li>Item 1</li>
+<li>Item 2</li>
+</ul>
+</body>
+</html>

@@ -1,0 +1,35 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Email with Inline Images
+Date: Wed, 21 Oct 2015 07:28:00 -0700
+Content-Type: multipart/related; boundary="related_boundary"
+
+--related_boundary
+Content-Type: multipart/alternative; boundary="alt_boundary"
+
+--alt_boundary
+Content-Type: text/plain; charset=utf-8
+
+This email contains inline images.
+
+--alt_boundary
+Content-Type: text/html; charset=utf-8
+
+<html>
+<body>
+<h1>Email with Inline Image</h1>
+<p>Here is an inline image: <img src="cid:image1" alt="Test Image"></p>
+</body>
+</html>
+
+--alt_boundary--
+
+--related_boundary
+Content-Type: image/png
+Content-Transfer-Encoding: base64
+Content-ID: <image1>
+Content-Disposition: inline; filename="test.png"
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==
+
+--related_boundary--

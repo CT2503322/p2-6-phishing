@@ -3,31 +3,48 @@ from .keywords import find
 from .whitelist import load_whitelist, is_whitelisted
 from urllib.parse import urlparse
 import re
+from ..ingestion.body_cleaner import strip_html_tags
 
-THRESHOLD = 1.0
-wl = load_whitelist()
+# Configuration constants
+WHITELIST_PATH = "backend/data/whitelist.txt"
+
+# Pre-compile regex for efficiency
+URL_PATTERN = re.compile(r"https?://[^\s]+")
+
+# Load whitelist once at module level
+wl = load_whitelist(WHITELIST_PATH)
 
 
 def extract_domains(text: str) -> set[str]:
-    """Extract domains from URLs in text."""
-    urls = re.findall(r"https?://[^\s]+", text)
+    """
+    Extract domains from URLs in text using pre-compiled regex.
+
+    Args:
+        text: Input text containing URLs
+
+    Returns:
+        Set of unique domains in lowercase
+    """
+    if not text:
+        return set()
+
     domains = set()
+    urls = URL_PATTERN.findall(text)
     for url in urls:
         try:
             parsed = urlparse(url)
-            domain = parsed.netloc
+            domain = parsed.netloc.lower()
             if domain:
-                domains.add(domain.lower())
-        except:
-            pass
+                domains.add(domain)
+        except Exception:
+            # Skip malformed URLs
+            continue
     return domains
 
 
 def check_keywords(subject: str, body: str) -> Dict[str, Any]:
     kws = find(subject + "\n" + body)
-    score = min(1.0, 0.2 * sum(k["count"] for k in kws))
-    reasons = ["KEYWORDS"] if score > 0 else []
-    return {"score": score, "reasons": reasons, "meta": {"keywords": kws}}
+    return {"meta": {"keywords": kws}}
 
 
 def check_whitelist(subject: str, body: str, html: str) -> Dict[str, Any]:
@@ -50,21 +67,9 @@ def analyze(
     all_content = subject + "\n" + body + "\n" + html
     domains = extract_domains(all_content)
 
-    # Aggregate score
-    score = kw_res["score"]
-    if wl_res["whitelisted"]:
-        score = min(score, 0.3)
-
-    # Aggregate reasons
-    reasons = kw_res["reasons"] + wl_res["reasons"]
-
-    # Determine label
-    if score == 0:
-        label = "UNSCORED"
-    elif score >= THRESHOLD:
-        label = "PHISHING"
-    else:
-        label = "SAFE"
+    # Aggregate reasons (without scoring)
+    reasons = wl_res["reasons"]
+    # Removed scoring logic
 
     # Extract key headers for display
     key_headers = {
@@ -84,16 +89,15 @@ def analyze(
 
     # Create HTML preview if present
     html_preview = ""
+    html_text = ""
     if html:
-        # Strip HTML tags for preview
-        import re
-
-        html_clean = re.sub(r"<[^>]+>", "", html)
+        # Strip HTML tags for preview using improved function
+        html_clean = strip_html_tags(html)
         html_preview = html_clean[:500] + ("..." if len(html_clean) > 500 else "")
+        # Full HTML text without truncation
+        html_text = html_clean
 
     return {
-        "risk": round(score, 2),
-        "label": label,
         "reasons": reasons,
         "meta": {
             **kw_res["meta"],
@@ -102,6 +106,7 @@ def analyze(
             "subject": subject,
             "body_preview": body_preview,
             "html_preview": html_preview,
+            "html_text": html_text,
             "domains": list(domains),
             "whitelisted_domains": [d for d in domains if is_whitelisted(d, wl)],
             "content_stats": {

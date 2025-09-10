@@ -1,0 +1,26 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Email with PDF Attachment
+Date: Wed, 21 Oct 2015 07:28:00 -0700
+Content-Type: multipart/mixed; boundary="mixed_boundary"
+
+--mixed_boundary
+Content-Type: text/plain; charset=utf-8
+
+This email contains a PDF attachment.
+
+--mixed_boundary
+Content-Type: application/pdf
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="document.pdf"
+
+JVBERi0xLjQKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovUGFnZXMgMiAwIFIKPj4KZW5kb2JqCjIg
+MCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFszIDAgUl0KL0NvdW50IDEKPj4KZW5kb2JqCjMgMCBv
+YmoKPDwKL1R5cGUgL1BhZ2UKL1BhcmVudCAyIDAgUgovTWVkaWFCb3ggWzAgMCA2MTIgNzkyXQovQ29u
+dGVudHMgNCAwIFIKPj4KZW5kb2JqCjQgMCBvYmoKPDwKL0xlbmd0aCA0ND4+CnN0cmVhbQpCVAovRjEg
+MjQgVGYKNzIgNzIgVGQoSGVsbG8gV29ybGQpVGoKRVQKZW5kc3RyZWFtCmVuZG9iagp4cmVmCjAgNQow
+MDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMTUgMDAwMDAgbiAKMDAwMDAwMDA3NCAwMDAwMCBuIAow
+MDAwMDAwMTIyIDAwMDAwIG4gCjAwMDAwMDAyMzkgMDAwMDAgbiAKdHJhaWxlcgo8PAovU2l6ZSA1Ci9S
+b290IDEgMCBSCj4+CnN0YXJ0eHJlZgo0ODQKJSVFT0YK
+
+--mixed_boundary--

@@ -72,11 +72,7 @@ def test_check_keywords():
     subject = "Urgent action required"
     body = "Your account needs verification."
     result = check_keywords(subject, body)
-    assert "score" in result
-    assert "reasons" in result
     assert "meta" in result
-    assert result["score"] > 0
-    assert "KEYWORDS" in result["reasons"]
 
 
 def test_check_whitelist():
@@ -107,12 +103,8 @@ def test_analyze():
     html = ""
 
     result = analyze(headers, subject, body, html)
-    assert "risk" in result
-    assert "label" in result
     assert "reasons" in result
     assert "meta" in result
-    assert isinstance(result["risk"], float)
-    assert result["label"] in ["SAFE", "PHISHING", "UNSCORED"]
 
 
 def test_analyze_whitelisted():
@@ -130,7 +122,37 @@ def test_analyze_whitelisted():
         html = ""
 
         result = analyze(headers, subject, body, html)
-        assert result["risk"] <= 0.3  # Should be reduced due to whitelist
+        assert "WHITELISTED" in result["reasons"]
     finally:
         global_wl.clear()
         global_wl.update(original_wl)
+
+
+def test_analyze_html_preview_and_text():
+    """Test that html_preview and html_text are properly generated."""
+    headers = {"From": "test@example.com", "To": "user@domain.com"}
+    subject = "Test subject"
+    body = "Test body"
+    html = "<html><body><h1>Test HTML</h1><p>This is a test with lots of content that should be truncated in preview but available in full text.</p></body></html>"
+
+    result = analyze(headers, subject, body, html)
+
+    # Check that both html_preview and html_text are present
+    assert "html_preview" in result["meta"]
+    assert "html_text" in result["meta"]
+
+    # html_preview should be truncated (500 chars + "...")
+    html_preview = result["meta"]["html_preview"]
+    assert len(html_preview) <= 503  # 500 + "..."
+    if len(result["meta"]["html_text"]) > 500:
+        assert html_preview.endswith("...")
+
+    # html_text should contain the full content
+    html_text = result["meta"]["html_text"]
+    assert (
+        html_text
+        == "Test HTMLThis is a test with lots of content that should be truncated in preview but available in full text."
+    )
+
+    # html_text should be longer than or equal to html_preview (excluding "...")
+    assert len(html_text) >= len(html_preview.rstrip("..."))

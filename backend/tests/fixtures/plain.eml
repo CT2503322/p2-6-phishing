@@ -1,0 +1,9 @@
+From: sender@example.com
+To: recipient@example.com
+Subject: Plain Text Email
+Date: Wed, 21 Oct 2015 07:28:00 -0700
+Content-Type: text/plain; charset=utf-8
+
+This is a simple plain text email body.
+It has multiple lines.
+And some basic content.

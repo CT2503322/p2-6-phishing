@@ -7,7 +7,6 @@ A full-stack web application for detecting phishing emails using machine learnin
 - **Email Analysis**: Upload and analyze `.eml` files for phishing indicators
 - **Keyword Detection**: Identifies suspicious keywords in email content
 - **Domain Whitelisting**: Checks against known safe domains
-- **Risk Scoring**: Provides risk scores and classification (SAFE/PHISHING/UNSCORED)
 - **REST API**: FastAPI backend with `/health` and `/analyze/eml` endpoints
 - **Modern Frontend**: Streamlit web application for easy email analysis
 - **Automated Testing**: Comprehensive test suite with pytest and sample files
@@ -25,7 +24,7 @@ p2-6-phishing/
 │   │   └── index.py       # Main API router with /health and /analyze/eml
 │   ├── core/              # Core analysis logic
 │   │   ├── keywords.py    # Keyword detection
-│   │   ├── score.py       # Risk scoring algorithm
+│   │   ├── score.py       # Analysis logic
 │   │   └── whitelist.py   # Domain whitelisting
 │   ├── data/              # Data files
 │   │   └── whitelist.txt  # Whitelisted domains
@@ -141,13 +140,13 @@ curl -F "file=@sample.eml" http://localhost:8000/analyze/eml
 
 ```json
 {
-  "risk": 0.4,
-  "label": "SAFE",
   "reasons": ["KEYWORDS"],
   "meta": {
     "keywords": [...],
     "headers": {...},
-    "subject": "..."
+    "subject": "...",
+    "domains": [...],
+    "whitelisted_domains": [...]
   }
 }
 ```

@@ -1,0 +1,434 @@
+"""
+Analysis results UI components.
+"""
+
+import streamlit as st
+from typing import Dict, Any
+
+
+def render_analysis_results(result: Dict[str, Any]):
+    """
+    Render the analysis results from the backend API.
+
+    Args:
+        result: Analysis results from the API
+    """
+    st.success("Analysis Complete!")
+
+    # Scoring removed - no risk score display
+
+    # Sender Identity Analysis
+    if "sender_identity" in result:
+        render_sender_identity_results(result["sender_identity"])
+
+    # Authentication Results
+    if "auth" in result:
+        render_authentication_results(result["auth"])
+
+    # Subscription Metadata
+    if "subscription" in result:
+        render_subscription_metadata(result["subscription"])
+
+    # Detailed Results
+    if "meta" in result:
+        meta = result["meta"]
+
+        # Keywords
+        if "keywords" in meta:
+            with st.expander("Keyword Analysis"):
+                keywords = meta["keywords"]
+                if keywords:
+                    for keyword in keywords:
+                        st.write(f"• {keyword['word']} (count: {keyword['count']})")
+                else:
+                    st.write("No suspicious keywords detected")
+
+        # Domains
+        if "domains" in meta:
+            with st.expander("Domain Analysis"):
+                domains = meta["domains"]
+                if domains:
+                    for domain in domains:
+                        st.write(f"• {domain}")
+                else:
+                    st.write("No domains detected")
+
+        # Headers
+        if "headers" in meta:
+            with st.expander("Header Analysis"):
+                headers = meta["headers"]
+                if headers:
+                    for header, value in headers.items():
+                        st.write(f"• **{header}:** {value}")
+                else:
+                    st.write("No headers detected")
+
+    # Raw JSON (for debugging)
+    with st.expander("Raw Analysis Data"):
+        st.json(result)
+
+
+def render_authentication_results(auth_data: Dict[str, Any]):
+    """
+    Render the authentication results in a user-friendly format.
+
+    Args:
+        auth_data: Authentication data from the analysis
+    """
+    with st.expander("Authentication Analysis", expanded=True):
+        st.markdown("**Email Authentication Results**")
+
+        # SPF Results
+        if auth_data.get("spf"):
+            spf = auth_data["spf"]
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+                st.metric("SPF", spf.get("result", "unknown").upper())
+
+            with col2:
+                st.metric("SPF Domain", spf.get("domain", "N/A"))
+
+            with col3:
+                st.metric("SPF IP", spf.get("ip", "N/A"))
+
+            with col4:
+                st.metric("SPF Aligned", spf.get("aligned", False))
+
+        # DKIM Results
+        if auth_data.get("dkim"):
+            dkim_list = auth_data["dkim"]
+            st.markdown("**DKIM Signatures**")
+
+            for i, dkim in enumerate(dkim_list, 1):
+                col1, col2, col3, col4 = st.columns(4)
+
+                with col1:
+                    st.metric(f"DKIM {i}", dkim.get("result", "unknown").upper())
+
+                with col2:
+                    st.metric(f"DKIM {i} Domain", dkim.get("d", "N/A"))
+
+                with col3:
+                    st.metric(f"DKIM {i} Selector", dkim.get("s", "N/A"))
+
+                with col4:
+                    st.metric(f"DKIM {i} Aligned", dkim.get("aligned", False))
+
+        # DMARC Results
+        if auth_data.get("dmarc"):
+            dmarc = auth_data["dmarc"]
+            st.markdown("**DMARC**")
+
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+                st.metric("DMARC", dmarc.get("result", "unknown").upper())
+
+            with col2:
+                st.metric("DMARC Policy", dmarc.get("policy", "N/A"))
+
+            with col3:
+                st.metric("DMARC Org Domain", dmarc.get("org_domain", "N/A"))
+
+            with col4:
+                st.metric("DMARC Aligned", dmarc.get("aligned", False))
+
+        # ARC Results
+        if auth_data.get("arc"):
+            arc = auth_data["arc"]
+            st.markdown("**ARC (Authenticated Received Chain)**")
+
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+                st.metric("ARC Instance", arc.get("instance", "N/A"))
+
+            with col2:
+                st.metric("ARC Seal", arc.get("seal", "unknown"))
+
+            with col3:
+                st.metric("ARC Chain Validation", arc.get("cv", "N/A"))
+
+            with col4:
+                st.metric("ARC Chain Count", arc.get("chain_count", "N/A"))
+
+        # Summary
+        st.markdown("---")
+        st.markdown("**Authentication Summary**")
+
+        auth_status = []
+        if auth_data.get("spf", {}).get("result") == "pass":
+            auth_status.append("SPF Pass")
+        if any(dkim.get("result") == "pass" for dkim in auth_data.get("dkim", [])):
+            auth_status.append("DKIM Pass")
+        if auth_data.get("dmarc", {}).get("result") == "pass":
+            auth_status.append("DMARC Pass")
+        if auth_data.get("arc", {}).get("seal") == "pass":
+            auth_status.append("ARC Pass")
+
+        if auth_status:
+            st.success("Email authentication passed: " + " | ".join(auth_status))
+        else:
+            st.warning("Email authentication failed or not present")
+
+
+def render_sender_identity_results(sender_identity: Dict[str, Any]):
+    """
+    Render the sender identity analysis results in a user-friendly format.
+
+    Args:
+        sender_identity: Sender identity data from the analysis
+    """
+    with st.expander("Sender Identity Analysis", expanded=True):
+        st.markdown("**Sender Information & Validation**")
+
+        # Basic sender information
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**From Address**")
+            from_address = sender_identity.get("from_address", "N/A")
+            from_name = sender_identity.get("from_name", "")
+            if from_name:
+                st.code(f"{from_name} <{from_address}>")
+            else:
+                st.code(from_address)
+
+            st.markdown("**From Domain**")
+            from_domain = sender_identity.get("from_domain", "N/A")
+            st.code(from_domain)
+
+        with col2:
+            st.markdown("**Reply-To Address**")
+            reply_to_address = sender_identity.get("reply_to_address")
+            reply_to_name = sender_identity.get("reply_to_name", "")
+            if reply_to_address:
+                if reply_to_name:
+                    st.code(f"{reply_to_name} <{reply_to_address}>")
+                else:
+                    st.code(reply_to_address)
+            else:
+                st.info("No Reply-To specified")
+
+            st.markdown("**Reply-To Domain**")
+            reply_to_domain = sender_identity.get("reply_to_domain")
+            if reply_to_domain:
+                st.code(reply_to_domain)
+            else:
+                st.info("No Reply-To domain")
+
+        # Organizational domain
+        st.markdown("**Organizational Domain**")
+        org_domain = sender_identity.get("organizational_domain")
+        if org_domain:
+            st.success(f"**{org_domain}**")
+        else:
+            st.info("Could not determine organizational domain")
+
+        # ESP Detection
+        st.markdown("---")
+        st.markdown("**Email Service Provider (ESP) Detection**")
+
+        esp_provider = sender_identity.get("email_service_provider")
+        esp_confidence = sender_identity.get("esp_confidence", 0.0)
+
+        if esp_provider:
+            confidence_pct = esp_confidence * 100
+            if confidence_pct >= 80:
+                st.success(
+                    f"**{esp_provider.title()}** detected ({confidence_pct:.1f}% confidence)"
+                )
+            elif confidence_pct >= 60:
+                st.warning(
+                    f"**{esp_provider.title()}** detected ({confidence_pct:.1f}% confidence)"
+                )
+            else:
+                st.info(
+                    f"**{esp_provider.title()}** detected ({confidence_pct:.1f}% confidence)"
+                )
+        else:
+            st.info("No specific ESP detected")
+
+        # ESP Indicators
+        esp_indicators = sender_identity.get("esp_indicators", [])
+        if esp_indicators:
+            st.markdown("**Detection Indicators**")
+            for indicator in esp_indicators[:8]:  # Show first 8 indicators
+                st.write(f"• {indicator}")
+            if len(esp_indicators) > 8:
+                st.write(f"... and {len(esp_indicators) - 8} more indicators")
+
+        # Mismatch Detection
+        st.markdown("---")
+        st.markdown("**From/Reply-To Mismatch Analysis**")
+
+        has_mismatch = sender_identity.get("has_from_reply_mismatch", False)
+        mismatch_details = sender_identity.get("mismatch_details", [])
+
+        if has_mismatch:
+            st.error("**WARNING: From/Reply-To Mismatch Detected!**")
+            st.markdown("This could indicate potential spoofing or phishing attempt.")
+
+            for detail in mismatch_details:
+                st.write(f"• {detail}")
+        else:
+            st.success("**No From/Reply-To mismatches found**")
+            st.markdown("Sender addresses appear legitimate and consistent.")
+
+        # Infrastructure Details
+        st.markdown("---")
+        st.markdown("**Infrastructure Analysis**")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**Sending IP Address**")
+            sending_ip = sender_identity.get("sending_ip")
+            if sending_ip:
+                st.code(sending_ip)
+            else:
+                st.info("IP not detected")
+
+        with col2:
+            st.markdown("**Return Path Domain**")
+            return_path_domain = sender_identity.get("return_path_domain")
+            if return_path_domain:
+                st.code(return_path_domain)
+            else:
+                st.info("Return path not found")
+
+        # Summary
+        st.markdown("---")
+        st.markdown("**Sender Identity Summary**")
+
+        summary_items = []
+
+        if esp_provider:
+            summary_items.append(
+                f"ESP: {esp_provider.title()} ({esp_confidence*100:.1f}% confidence)"
+            )
+
+        if org_domain:
+            summary_items.append(f"Organization: {org_domain}")
+
+        if has_mismatch:
+            summary_items.append("Address/domain mismatches detected")
+        else:
+            summary_items.append("Consistent sender information")
+
+        if sending_ip:
+            summary_items.append(f"Infrastructure: {sending_ip}")
+
+        if summary_items:
+            for item in summary_items:
+                st.write(f"• {item}")
+        else:
+            st.info("Limited sender identity information available")
+
+
+def render_subscription_metadata(subscription_data: Dict[str, Any]):
+    """
+    Render the subscription metadata in a user-friendly format.
+
+    Args:
+        subscription_data: Subscription metadata from the analysis
+    """
+    with st.expander("Subscription & List Management", expanded=True):
+        st.markdown("**List Unsubscribe Information**")
+
+        # List-Unsubscribe-Post header
+        if subscription_data.get("list_unsubscribe_post"):
+            post_value = subscription_data["list_unsubscribe_post"]
+            if "One-Click" in post_value:
+                st.success("**One-Click Unsubscribe**: Supported")
+            else:
+                st.info(f"**Unsubscribe Method**: {post_value}")
+
+        # List-Unsubscribe details
+        if subscription_data.get("list_unsubscribe"):
+            unsubscribe = subscription_data["list_unsubscribe"]
+
+            st.markdown("**Unsubscribe Options**")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                # One-click capability
+                if unsubscribe.get("one_click"):
+                    st.success("**One-Click Unsubscribe**: Available")
+                else:
+                    st.info("**Traditional Unsubscribe**: Required")
+
+                # HTTP URL
+                if unsubscribe.get("http"):
+                    st.markdown("**Web Unsubscribe URL:**")
+                    url = unsubscribe["http"]
+                    # Truncate long URLs for display
+                    display_url = url[:80] + "..." if len(url) > 80 else url
+                    st.code(display_url, language="text")
+                    st.markdown(f"[Open URL]({url})", unsafe_allow_html=True)
+
+            with col2:
+                # Mailto address
+                if unsubscribe.get("mailto"):
+                    st.markdown("**Email Unsubscribe:**")
+                    mailto = unsubscribe["mailto"]
+                    st.code(mailto, language="text")
+
+                    # Subject line
+                    if unsubscribe.get("mailto_subject"):
+                        st.markdown(f"**Subject:** `{unsubscribe['mailto_subject']}`")
+
+                # Provider detection
+                if unsubscribe.get("provider"):
+                    provider = unsubscribe["provider"]
+                    st.markdown(f"**Email Service Provider:** {provider.title()}")
+
+        # Feedback-ID
+        if subscription_data.get("feedback_id"):
+            st.markdown("**Feedback Information**")
+            st.info(f"**Feedback ID**: `{subscription_data['feedback_id']}`")
+
+        # Precedence
+        if subscription_data.get("precedence"):
+            precedence = subscription_data["precedence"]
+            st.markdown("**Message Priority**")
+
+            if precedence.lower() == "bulk":
+                st.info("**Precedence**: Bulk (Marketing/Newsletter)")
+            elif precedence.lower() == "list":
+                st.info("**Precedence**: List (Mailing List)")
+            elif precedence.lower() == "auto":
+                st.warning("**Precedence**: Auto (Automated Message)")
+            else:
+                st.write(f"**Precedence**: {precedence}")
+
+        # Summary
+        st.markdown("---")
+        st.markdown("**Subscription Analysis Summary**")
+
+        summary_items = []
+
+        if subscription_data.get("list_unsubscribe"):
+            unsubscribe = subscription_data["list_unsubscribe"]
+            if unsubscribe.get("one_click"):
+                summary_items.append("One-click unsubscribe available")
+            if unsubscribe.get("http"):
+                summary_items.append("Web-based unsubscribe option")
+            if unsubscribe.get("mailto"):
+                summary_items.append("Email-based unsubscribe option")
+            if unsubscribe.get("provider"):
+                summary_items.append(f"Provider: {unsubscribe['provider'].title()}")
+
+        if subscription_data.get("list_unsubscribe_post"):
+            summary_items.append("POST method supported")
+
+        if subscription_data.get("feedback_id"):
+            summary_items.append("Feedback tracking enabled")
+
+        if summary_items:
+            for item in summary_items:
+                st.write(f"• {item}")
+        else:
+            st.info("No subscription management information found")
