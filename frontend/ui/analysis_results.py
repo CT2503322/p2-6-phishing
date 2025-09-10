@@ -25,6 +25,10 @@ def render_analysis_results(result: Dict[str, Any]):
     if "auth" in result:
         render_authentication_results(result["auth"])
 
+    # Raw Authentication Headers
+    if "raw_auth_headers" in result:
+        render_raw_authentication_headers(result["raw_auth_headers"])
+
     # Subscription Metadata
     if "subscription" in result:
         render_subscription_metadata(result["subscription"])
@@ -554,3 +558,141 @@ def render_routing_results(routing_data: Dict[str, Any]):
                 st.metric("Total Routing Indicators", total_indicators)
         else:
             st.info("No routing information found in this email")
+
+
+def render_raw_authentication_headers(raw_auth_headers: Dict[str, Any]):
+    """
+    Render the raw authentication headers in a user-friendly format.
+
+    Args:
+        raw_auth_headers: Raw authentication header data from the analysis
+    """
+    if not raw_auth_headers:
+        return
+
+    with st.expander("Raw Authentication Headers", expanded=False):
+        st.markdown("**Raw Authentication Data for Analysis**")
+
+        # Authentication-Results header
+        if "authentication_results" in raw_auth_headers:
+            st.markdown("**Authentication-Results Header**")
+            st.code(raw_auth_headers["authentication_results"], language="text")
+            st.markdown(
+                "This header contains summarized SPF, DKIM, DMARC, and ARC results from the receiving mail server."
+            )
+
+        # DKIM-Signature headers
+        if "dkim_signature" in raw_auth_headers:
+            st.markdown("---")
+            st.markdown("**DKIM-Signature Headers**")
+
+            dkim_data = raw_auth_headers["dkim_signature"]
+            if isinstance(dkim_data, list):
+                for i, signature in enumerate(dkim_data, 1):
+                    st.markdown(f"**DKIM Signature {i}:**")
+                    st.code(signature, language="text")
+                    if i < len(dkim_data):
+                        st.markdown("")
+            else:
+                st.code(dkim_data, language="text")
+
+            st.markdown(
+                "DKIM signatures verify the email was not modified in transit and authenticate the sender domain."
+            )
+
+        # ARC headers
+        arc_headers_present = False
+        if "arc_seal" in raw_auth_headers:
+            if not arc_headers_present:
+                st.markdown("---")
+                st.markdown("**ARC (Authenticated Received Chain) Headers**")
+                arc_headers_present = True
+
+            st.markdown("**ARC-Seal:**")
+            st.code(raw_auth_headers["arc_seal"], language="text")
+            st.markdown(
+                "ARC-Seal provides cryptographic verification that the email passed through authenticated servers."
+            )
+
+        if "arc_message_signature" in raw_auth_headers:
+            if not arc_headers_present:
+                st.markdown("---")
+                st.markdown("**ARC (Authenticated Received Chain) Headers**")
+                arc_headers_present = True
+
+            st.markdown("**ARC-Message-Signature:**")
+            st.code(raw_auth_headers["arc_message_signature"], language="text")
+            st.markdown(
+                "ARC-Message-Signature cryptographically signs the message content for chain validation."
+            )
+
+        if "arc_authentication_results" in raw_auth_headers:
+            if not arc_headers_present:
+                st.markdown("---")
+                st.markdown("**ARC (Authenticated Received Chain) Headers**")
+                arc_headers_present = True
+
+            st.markdown("**ARC-Authentication-Results:**")
+            st.code(raw_auth_headers["arc_authentication_results"], language="text")
+            st.markdown(
+                "ARC-Authentication-Results contains the authentication results from previous hops in the chain."
+            )
+
+        # Received-SPF headers
+        if "received_spf" in raw_auth_headers:
+            st.markdown("---")
+            st.markdown("**Received-SPF Headers**")
+
+            spf_data = raw_auth_headers["received_spf"]
+            if isinstance(spf_data, list):
+                for i, spf_header in enumerate(spf_data, 1):
+                    st.markdown(f"**Received-SPF {i}:**")
+                    st.code(spf_header, language="text")
+                    if i < len(spf_data):
+                        st.markdown("")
+            else:
+                st.code(spf_data, language="text")
+
+            st.markdown(
+                "Received-SPF shows the SPF evaluation results from the receiving mail server, including IP validation and domain matching."
+            )
+
+        # Summary
+        if raw_auth_headers:
+            st.markdown("---")
+            st.markdown("**Raw Authentication Headers Summary**")
+
+            header_count = len(raw_auth_headers)
+            st.info(
+                f"Found {header_count} raw authentication header{'s' if header_count != 1 else ''}"
+            )
+
+            # Count individual headers
+            details = []
+            if "authentication_results" in raw_auth_headers:
+                details.append("Authentication-Results")
+            if "dkim_signature" in raw_auth_headers:
+                if isinstance(raw_auth_headers["dkim_signature"], list):
+                    details.append(
+                        f"{len(raw_auth_headers['dkim_signature'])} DKIM Signatures"
+                    )
+                else:
+                    details.append("DKIM Signature")
+            if "received_spf" in raw_auth_headers:
+                if isinstance(raw_auth_headers["received_spf"], list):
+                    details.append(
+                        f"{len(raw_auth_headers['received_spf'])} Received-SPF"
+                    )
+                else:
+                    details.append("Received-SPF")
+
+            arc_count = sum(
+                1 for key in raw_auth_headers.keys() if key.startswith("arc_")
+            )
+            if arc_count > 0:
+                details.append(f"{arc_count} ARC headers")
+
+            if details:
+                st.write("Available headers: " + " | ".join(details))
+        else:
+            st.info("No raw authentication headers found in this email")

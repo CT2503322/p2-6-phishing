@@ -12,7 +12,7 @@ from backend.ingestion.parse_eml import (
 )
 from backend.ingestion.sender_identity import SenderIdentityAnalyzer
 from backend.ingestion.headers import HeaderNormalizer
-from backend.ingestion.auth_parser import get_auth_data
+from backend.ingestion.auth_parser import get_auth_data, get_raw_auth_headers
 from dataclasses import asdict
 from fastapi import UploadFile, FastAPI, File, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -163,6 +163,10 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
         # Add authentication data from auth parser
         auth_data = get_auth_data(headers)
         result["auth"] = auth_data
+
+        # Add raw authentication headers for detailed analysis
+        raw_auth_headers = get_raw_auth_headers(headers)
+        result["raw_auth_headers"] = raw_auth_headers
 
         # Add subscription metadata
         subscription_metadata = header_normalizer.get_subscription_metadata()

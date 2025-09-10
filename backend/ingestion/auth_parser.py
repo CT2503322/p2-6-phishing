@@ -43,6 +43,57 @@ def parse_authentication_results(auth_header: str) -> Dict[str, Any]:
     return auth_data
 
 
+def get_raw_auth_headers(headers: Dict[str, str]) -> Dict[str, Any]:
+    """
+    Extract raw authentication headers from email headers for analysis.
+
+    Args:
+        headers: Dict of email headers
+
+    Returns:
+        Dict with raw auth header values: authentication_results, dkim_signature, arc_seal, arc_message_signature, arc_authentication_results, received_spf
+    """
+    raw_headers = {}
+
+    # Authentication-Results header (already summarized above)
+    if "Authentication-Results" in headers:
+        raw_headers["authentication_results"] = headers["Authentication-Results"]
+
+    # DKIM-Signature headers (may have multiple)
+    dkim_sigs = []
+    for key, value in headers.items():
+        if key.lower() == "dkim-signature":
+            dkim_sigs.append(value)
+
+    if dkim_sigs:
+        raw_headers["dkim_signature"] = (
+            dkim_sigs if len(dkim_sigs) > 1 else dkim_sigs[0]
+        )
+
+    # ARC headers
+    for key, value in headers.items():
+        key_lower = key.lower()
+        if key_lower == "arc-seal":
+            raw_headers["arc_seal"] = value
+        elif key_lower == "arc-message-signature":
+            raw_headers["arc_message_signature"] = value
+        elif key_lower == "arc-authentication-results":
+            raw_headers["arc_authentication_results"] = value
+
+    # Received-SPF headers (may have multiple)
+    received_spf = []
+    for key, value in headers.items():
+        if key.lower() == "received-spf":
+            received_spf.append(value)
+
+    if received_spf:
+        raw_headers["received_spf"] = (
+            received_spf if len(received_spf) > 1 else received_spf[0]
+        )
+
+    return raw_headers
+
+
 def _parse_spf(spf_part: str) -> Optional[Dict[str, Any]]:
     """
     Parse SPF result: spf=pass (comment) smtp.mailfrom=...
