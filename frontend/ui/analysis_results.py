@@ -71,9 +71,13 @@ def render_analysis_results(result: Dict[str, Any]):
                 else:
                     st.write("No headers detected")
 
-    # Confusable Findings
+        # Confusable Findings
     if "confusable_findings" in result and result["confusable_findings"]:
         render_confusable_findings_results(result["confusable_findings"])
+
+        # Lookalike Domain Findings
+    if "lookalike_domains" in result and result["lookalike_domains"]:
+        render_lookalike_findings_results(result["lookalike_domains"])
 
     # URL Findings
     if "url_findings" in result and result["url_findings"]:
@@ -1013,6 +1017,192 @@ def render_confusable_findings_results(confusable_findings: list):
 
         for item in summary_items:
             st.write(f"• {item}")
+
+
+def render_lookalike_findings_results(lookalike_findings: list):
+    """
+    Render the edit-distance lookalike findings in a user-friendly format.
+
+    Args:
+        lookalike_findings: List of lookalike findings from the analysis
+    """
+    if not lookalike_findings:
+        return
+
+    with st.expander("🔍 Edit-Distance Lookalike Analysis", expanded=True):
+        st.markdown("**Typosquatting & Edit-Distance Domain Analysis**")
+        st.markdown(
+            "Detection of domains similar to known brands using edit distance algorithms:"
+        )
+
+        # Summary metrics
+        total_findings = len(lookalike_findings)
+        high_cutoff = sum(1 for f in lookalike_findings if f.get("distance") == 1)
+        within_cutoff = sum(1 for f in lookalike_findings if f.get("within_cutoff"))
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Findings", total_findings)
+        with col2:
+            st.metric("Distance = 1", high_cutoff)
+        with col3:
+            st.metric("Within Cutoff (≤2)", within_cutoff)
+
+        # Individual findings
+        for i, finding in enumerate(lookalike_findings, 1):
+            suspect_domain = finding.get("suspect_domain", "N/A")
+            target_domain = finding.get("target_domain", "N/A")
+            distance = finding.get("distance", 0)
+            within_cutoff = finding.get("within_cutoff", False)
+            evidence = finding.get("evidence", "")
+
+            # Determine threat level
+            threat_level = (
+                "high" if distance == 1 else "medium" if within_cutoff else "low"
+            )
+
+            # Color coding based on threat level
+            if threat_level == "high":
+                st.error(f"**HIGH THREAT** - Single Character Difference {i}")
+            elif threat_level == "medium":
+                st.warning(f"**MEDIUM THREAT** - Similar Domain {i}")
+            else:
+                st.info(f"**LOW RISK** - Distant Match {i}")
+
+            # Display finding details
+            col1, col2 = st.columns([3, 1])
+
+            with col1:
+                st.markdown("**Suspect Domain:**")
+                st.code(suspect_domain)
+
+                st.markdown("**Target Domain:**")
+                st.code(target_domain)
+
+                st.markdown("**Edit Distance:**")
+                if distance == 1:
+                    st.error(f"**{distance}** (Single character difference)")
+                elif within_cutoff:
+                    st.warning(f"**{distance}** (Within cutoff threshold)")
+                else:
+                    st.info(f"**{distance}** (Above threshold)")
+
+                # Brand information
+                if "Imitates brand:" in evidence:
+                    brand_matches = [
+                        part
+                        for part in evidence.split("; ")
+                        if "Imitates brand:" in part
+                    ]
+                    if brand_matches:
+                        brand = brand_matches[0].replace("Imitates brand: ", "")
+                        st.markdown(f"**Brand Target:** {brand}")
+
+            with col2:
+                st.markdown("**Technical Details:**")
+
+                # Pattern detection
+                if "Single character difference" in evidence:
+                    st.write("🔤 Single Char Diff")
+
+                if "Possible character swap" in evidence:
+                    st.write("🔄 Char Swap")
+
+                if "Possible missing character" in evidence:
+                    st.write("➖ Missing Char")
+
+                if "Possible extra character" in evidence:
+                    st.write("➕ Extra Char")
+
+                if "Possible character substitution" in evidence:
+                    st.write("🔄 Substitution")
+
+                # Similarity score if available
+                if not within_cutoff:
+                    st.metric("Distance", distance)
+
+            # Evidence
+            if evidence:
+                st.markdown("**Analysis Evidence:**")
+                # Format evidence for better readability
+                if "; " in evidence:
+                    evidence_parts = evidence.split("; ")
+                    for part in evidence_parts:
+                        if not part.startswith("Target:") and not part.startswith(
+                            "Imitates brand:"
+                        ):
+                            st.write(f"• {part}")
+                else:
+                    st.info(evidence)
+
+            # Separator between findings
+            if i < len(lookalike_findings):
+                st.markdown("---")
+
+        # Overall summary
+        st.markdown("---")
+        st.markdown("**Lookalike Analysis Summary**")
+
+        summary_items = []
+
+        if total_findings > 0:
+            summary_items.append(
+                f"{total_findings} suspicious domain(s) analyzed for typosquatting"
+            )
+        else:
+            summary_items.append("No suspicious domains analyzed")
+
+        if high_cutoff > 0:
+            summary_items.append(
+                f"{high_cutoff} single-character difference(s) found - high threat potential"
+            )
+
+        if within_cutoff > 0:
+            summary_items.append(
+                f"{within_cutoff} domain(s) within cutoff threshold - potential spoofing attempts"
+            )
+
+        # Extract unique brands targeted
+        brands_targeted = set()
+        for finding in lookalike_findings:
+            evidence = finding.get("evidence", "")
+            if "Imitates brand:" in evidence:
+                brand_matches = [
+                    part for part in evidence.split("; ") if "Imitates brand:" in part
+                ]
+                if brand_matches:
+                    brand = brand_matches[0].replace("Imitates brand: ", "")
+                    brands_targeted.add(brand)
+
+        if brands_targeted:
+            brand_list = ", ".join(sorted(brands_targeted))
+            summary_items.append(f"Brands targeted: {brand_list}")
+
+        # Check for high-risk patterns
+        high_risk_findings = [
+            f
+            for f in lookalike_findings
+            if f.get("distance") == 1 and "Imitates brand:" in f.get("evidence", "")
+        ]
+        if high_risk_findings:
+            summary_items.append(
+                "⚠️ **CRITICAL RISK:** Single-character brand impersonation detected"
+            )
+
+        for item in summary_items:
+            st.write(f"• {item}")
+
+        # Technical notes
+        with st.expander("ℹTechnical Details", expanded=False):
+            st.markdown(
+                """
+            **Edit Distance Algorithm:**
+            - **Distance 1**: Single character addition, deletion, or substitution
+            - **Cutoff Threshold**: ≤2 character changes considered suspicious
+            - **Levenshtein Distance**: Minimum operations to transform one string to another
+            - **Typosquatting Detection**: Common phishing technique using similar domains
+            """
+            )
 
 
 def render_keyword_analysis_results(keyword_analysis: Dict[str, Any]):

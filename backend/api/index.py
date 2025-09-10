@@ -4,6 +4,7 @@ from pathlib import Path
 from dataclasses import asdict
 
 from backend.core.score import analyze as analyze_core
+from backend.ingestion.edit_distance import DETECTOR as EDIT_DISTANCE_DETECTOR
 from backend.ingestion.parse_eml import (
     eml_to_parts,
     validate_email_message,
@@ -242,6 +243,40 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
                 }
             )
         result["confusable_findings"] = confusable_findings
+
+        # Add edit-distance lookalike findings
+        # Get recipient's organization domain from headers
+        recipient_org = None
+        to_header = headers.get("To", "").strip()
+        if to_header and "@" in to_header:
+            # Extract domain from the first recipient
+            recipient_email = to_header.split(",")[0].strip()
+            if "@" in recipient_email:
+                recipient_org = recipient_email.split("@")[1].lower()
+
+        # Analyze all domains for lookalikes
+        all_domains_to_check = set()
+
+        # Add sender domains
+        if sender_identity.from_domain:
+            all_domains_to_check.add(sender_identity.from_domain.lower())
+        if sender_identity.reply_to_domain:
+            all_domains_to_check.add(sender_identity.reply_to_domain.lower())
+        if sender_identity.return_path_domain:
+            all_domains_to_check.add(sender_identity.return_path_domain.lower())
+
+        # Add domains from content
+        for domain in domains:
+            all_domains_to_check.add(domain.lower())
+
+        # Perform lookalike detection
+        lookalike_findings = EDIT_DISTANCE_DETECTOR.analyze_domains(
+            list(all_domains_to_check), recipient_org=recipient_org
+        )
+
+        result["lookalike_domains"] = [
+            asdict(finding) for finding in lookalike_findings
+        ]
 
         # Add processing metadata
         processing_time = time.time() - start_time

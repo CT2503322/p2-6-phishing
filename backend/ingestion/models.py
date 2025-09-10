@@ -117,6 +117,17 @@ class KeywordHit:
 
 
 @dataclass
+class LookalikeFinding:
+    """Data structure for edit-distance-based lookalike detection."""
+
+    suspect_domain: str
+    target_domain: str
+    distance: int
+    within_cutoff: bool
+    evidence: str
+
+
+@dataclass
 class SubscriptionMetadata:
     list_unsubscribe: Optional[ListUnsubscribe] = None
     list_unsubscribe_post: Optional[str] = None
