@@ -5,6 +5,7 @@ import re
 from backend.ingestion.addresses import AddressUtils
 from backend.ingestion.auth_parser import get_auth_data
 from backend.ingestion.headers import HeaderNormalizer
+from backend.ingestion.confusables import DETECTOR
 
 
 @dataclass
@@ -34,6 +35,11 @@ class SenderIdentity:
     # Infrastructure details
     sending_ip: Optional[str] = None
     return_path_domain: Optional[str] = None
+
+    # Confusable analysis
+    from_confusable_finding: Optional[Any] = None  # ConfusableFinding for from_domain
+    reply_to_confusable_finding: Optional[Any] = None
+    return_path_confusable_finding: Optional[Any] = None
 
     def __post_init__(self):
         if self.esp_indicators is None:
@@ -121,6 +127,17 @@ class SenderIdentityAnalyzer:
         sending_ip = self._extract_sending_ip()
         return_path_domain = self._extract_return_path_domain()
 
+        # Analyze domains for confusables
+        from_confusable_finding = (
+            DETECTOR.analyze_domain(from_domain) if from_domain else None
+        )
+        reply_to_confusable_finding = (
+            DETECTOR.analyze_domain(reply_to_domain) if reply_to_domain else None
+        )
+        return_path_confusable_finding = (
+            DETECTOR.analyze_domain(return_path_domain) if return_path_domain else None
+        )
+
         return SenderIdentity(
             from_address=from_address,
             from_name=from_name,
@@ -136,6 +153,9 @@ class SenderIdentityAnalyzer:
             mismatch_details=mismatch_info["details"],
             sending_ip=sending_ip,
             return_path_domain=return_path_domain,
+            from_confusable_finding=from_confusable_finding,
+            reply_to_confusable_finding=reply_to_confusable_finding,
+            return_path_confusable_finding=return_path_confusable_finding,
         )
 
     def _extract_domain(self, email: str) -> Optional[str]:

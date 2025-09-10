@@ -11,6 +11,7 @@ from urllib.parse import urlparse, urljoin
 from typing import Optional, Tuple, List
 from .models import HtmlMetrics, TextMetrics, UrlFinding
 from .body_cleaner import strip_html_tags
+from .confusables import DETECTOR
 
 
 def extract_html_metrics(html_content: str, subject: str = "") -> HtmlMetrics:
@@ -322,16 +323,24 @@ def extract_url_findings(html_content: str) -> List[UrlFinding]:
         clean_text = _clean_anchor_text(anchor_text)
 
         # Analyze URL components
+        # Check for confusables in domain
+        confusable_finding = DETECTOR.analyze_domain(parsed_url.netloc)
+
+        # Update evidence with confusable results
+        confusable_evidence = ""
+        if confusable_finding.evidence:
+            confusable_evidence = f"; {confusable_finding.evidence}"
+
         finding = UrlFinding(
             text=clean_text,
             href=absolute_href,
             netloc=parsed_url.netloc,
             is_ip_literal=_is_ip_literal(parsed_url.netloc),
             is_punycode=parsed_url.netloc.startswith("xn--"),
-            skeleton_match=None,  # TODO: implement confusables logic
+            skeleton_match=confusable_finding.skeleton_match,
             is_shortener=_is_url_shortener(parsed_url.netloc),
             text_href_mismatch=_has_text_href_mismatch(clean_text, parsed_url.netloc),
-            brand_match=_match_brand(parsed_url.netloc),
+            brand_match=confusable_finding.matched_brand,
             first_seen_pos=html_content.find(
                 absolute_href
             ),  # Position of the URL itself
@@ -343,8 +352,9 @@ def extract_url_findings(html_content: str) -> List[UrlFinding]:
                 parsed_url.netloc.startswith("xn--"),
                 _is_url_shortener(parsed_url.netloc),
                 _has_text_href_mismatch(clean_text, parsed_url.netloc),
-                _match_brand(parsed_url.netloc),
-            ),
+                confusable_finding.matched_brand,
+            )
+            + confusable_evidence,
         )
         findings.append(finding)
 

@@ -71,6 +71,10 @@ def render_analysis_results(result: Dict[str, Any]):
                 else:
                     st.write("No headers detected")
 
+    # Confusable Findings
+    if "confusable_findings" in result and result["confusable_findings"]:
+        render_confusable_findings_results(result["confusable_findings"])
+
     # URL Findings
     if "url_findings" in result and result["url_findings"]:
         render_url_findings_results(result["url_findings"])
@@ -843,6 +847,172 @@ def render_content_analysis(result: Dict[str, Any]):
             for i, (label, value) in enumerate(metrics_data):
                 with metric_cols[i]:
                     st.metric(label, value)
+
+
+def render_confusable_findings_results(confusable_findings: list):
+    """
+    Render the confusable character and IDN findings in a user-friendly format.
+
+    Args:
+        confusable_findings: List of confusable findings from the analysis
+    """
+    if not confusable_findings:
+        return
+
+    with st.expander("🔍 Confusable Character & IDN Analysis", expanded=True):
+        st.markdown("**Homoglyph & IDN Domain Analysis**")
+        st.markdown("Detection of similar-looking characters used for brand spoofing:")
+
+        # Summary metrics
+        total_findings = len(confusable_findings)
+        skeleton_matches = sum(
+            1 for f in confusable_findings if f.get("skeleton_match")
+        )
+        brand_matches = sum(1 for f in confusable_findings if f.get("matched_brand"))
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Findings", total_findings)
+        with col2:
+            st.metric("Skeleton Matches", skeleton_matches)
+        with col3:
+            st.metric("Brand Matches", brand_matches)
+
+        # Individual findings
+        for i, finding in enumerate(confusable_findings, 1):
+            finding_type = finding.get("type", "unknown")
+            domain = finding.get("domain", "N/A")
+            matched_brand = finding.get("matched_brand")
+            skeleton_match = finding.get("skeleton_match")
+            evidence = finding.get("evidence", "")
+
+            # Determine threat level
+            threat_level = "low"
+            if matched_brand and skeleton_match:
+                threat_level = "high"
+            elif matched_brand or skeleton_match:
+                threat_level = "medium"
+
+            # Color coding based on threat level
+            if threat_level == "high":
+                st.error(f"**HIGH THREAT** - {finding_type.title()} {i}")
+            elif threat_level == "medium":
+                st.warning(f"**MEDIUM THREAT** - {finding_type.title()} {i}")
+            else:
+                st.info(f"**LOW RISK** - {finding_type.title()} {i}")
+
+            # Display finding details
+            col1, col2 = st.columns([2, 1])
+
+            with col1:
+                st.markdown(f"**Domain:**")
+                st.code(domain)
+
+                if matched_brand:
+                    st.markdown(f"**Imitates Brand:** {matched_brand}")
+                    if skeleton_match:
+                        st.warning(
+                            "⚠️ **Skeleton Match Detected** - Characters visually similar"
+                        )
+                    else:
+                        st.info("📝 Brand detected but no skeleton match")
+
+                # Classification by type
+                if finding_type == "sender_from":
+                    st.markdown("**Classification:** Sender From Address Domain")
+                elif finding_type == "sender_reply_to":
+                    st.markdown("**Classification:** Sender Reply-To Domain")
+                elif finding_type == "sender_return_path":
+                    st.markdown("**Classification:** Sender Return-Path Domain")
+                else:
+                    st.markdown(f"**Classification:** {finding_type}")
+
+            with col2:
+                st.markdown("**Technical Details:**")
+                if finding.get("unicode_replacements"):
+                    unicode_chars = finding["unicode_replacements"]
+                    st.write(f"Unicode Chars: {len(unicode_chars)}")
+                    if len(unicode_chars) <= 5:
+                        st.code("".join(unicode_chars))
+                    else:
+                        st.code("".join(unicode_chars[:5]) + "...")
+
+                if skeleton_match:
+                    st.write("🦴 Skeleton: Yes")
+
+                # Brand similarity score if available
+                if finding.get("brand_similarity_score"):
+                    score = finding["brand_similarity_score"]
+                    if score > 0.8:
+                        st.error(f"Similarity: {score:.2f}")
+                    elif score > 0.6:
+                        st.warning(f"Similarity: {score:.2f}")
+                    else:
+                        st.info(f"Similarity: {score:.2f}")
+
+            # Evidence/Details
+            if evidence:
+                st.markdown("**Evidence:**")
+                # Format evidence for better readability
+                if "; " in evidence:
+                    evidence_parts = evidence.split("; ")
+                    for part in evidence_parts:
+                        st.write(f"• {part}")
+                else:
+                    st.info(evidence)
+
+            # Separator between findings
+            if i < len(confusable_findings):
+                st.markdown("---")
+
+        # Overall summary
+        st.markdown("---")
+        st.markdown("**Confusable Analysis Summary**")
+
+        summary_items = []
+
+        if total_findings > 0:
+            summary_items.append(f"{total_findings} domain(s) analyzed for confusables")
+        else:
+            summary_items.append("No domains analyzed")
+
+        if skeleton_matches > 0:
+            summary_items.append(
+                f"{skeleton_matches} skeleton match(es) found - possible homoglyph attacks"
+            )
+
+        if brand_matches > 0:
+            summary_items.append(
+                f"{brand_matches} brand match(es) detected - potential spoofing attempts"
+            )
+
+        if any(f.get("matched_brand") for f in confusable_findings):
+            unique_brands = set(
+                f.get("matched_brand")
+                for f in confusable_findings
+                if f.get("matched_brand")
+            )
+            brand_list = ", ".join(sorted(unique_brands))
+            summary_items.append(f"Brands targeted: {brand_list}")
+
+        if any(f.get("unicode_replacements") for f in confusable_findings):
+            total_unicode = sum(
+                len(f.get("unicode_replacements", [])) for f in confusable_findings
+            )
+            summary_items.append(f"{total_unicode} Unicode characters detected")
+
+        threat_findings = [
+            f
+            for f in confusable_findings
+            if f.get("matched_brand") and f.get("skeleton_match")
+        ]
+        if threat_findings:
+            summary_items.append(
+                "⚠️ **HIGH RISK:** Skeleton + brand matches indicate sophisticated spoofing attempts"
+            )
+
+        for item in summary_items:
+            st.write(f"• {item}")
 
 
 def render_keyword_analysis_results(keyword_analysis: Dict[str, Any]):

@@ -5,6 +5,7 @@ from .whitelist import load_whitelist, is_whitelisted
 from urllib.parse import urlparse
 import re
 from ..ingestion.body_cleaner import strip_html_tags
+from ..ingestion.confusables import DETECTOR
 
 # Configuration constants
 WHITELIST_PATH = "backend/data/whitelist.txt"
@@ -64,8 +65,40 @@ def check_whitelist(subject: str, body: str, html: str) -> Dict[str, Any]:
     }
 
 
+def calculate_confusable_score_boost(domains: List[str]) -> float:
+    """
+    Calculate scoring boost for brand matches using confusables analysis.
+
+    Args:
+        domains: List of domains to check for brand matches
+
+    Returns:
+        Total boost amount (1.5 per qualifying brand match)
+    """
+    total_boost = 0.0
+    boosted_brands = set()  # Track brands to avoid double-counting subdomains
+
+    for domain in domains:
+        if not domain:
+            continue
+
+        finding = DETECTOR.analyze_domain(domain)
+
+        # Apply boost if this qualifies as a brand match
+        if DETECTOR.should_apply_brand_boost(finding):
+            if finding.matched_brand not in boosted_brands:
+                total_boost += 1.5
+                boosted_brands.add(finding.matched_brand)
+
+    return total_boost
+
+
 def analyze(
-    headers: Dict[str, Any], subject: str, body: str, html: str
+    headers: Dict[str, Any],
+    subject: str,
+    body: str,
+    html: str,
+    sender_identity: Any = None,
 ) -> Dict[str, Any]:
     # Run checks
     kw_res = check_keywords(subject, body)
@@ -88,10 +121,36 @@ def analyze(
     # Get whitelist information for domains (for frontend display)
     whitelisted_domains = [d for d in domains if is_whitelisted(d, wl)]
 
+    # Calculate confusable score boost
+    confusable_boost = 0.0
+    if sender_identity:
+        # Collect all domains from sender identity for boosting
+        sender_domains = []
+        if sender_identity.from_domain:
+            sender_domains.append(sender_identity.from_domain)
+        if sender_identity.reply_to_domain:
+            sender_domains.append(sender_identity.reply_to_domain)
+        if sender_identity.return_path_domain:
+            sender_domains.append(sender_identity.return_path_domain)
+
+        # Add unique domains from content analysis
+        sender_domains.extend(list(domains))
+
+        confusable_boost = calculate_confusable_score_boost(sender_domains)
+
+        # Add reason for confusable boost
+        if confusable_boost > 0:
+            reasons.append(f"BRAND_SPOOFING_BOOST:{confusable_boost:.1f}")
+
+    # Calculate final score
+    final_score = keyword_score + confusable_boost
+
     return {
         "reasons": reasons,
         "keywords": kw_res["simplified_keywords"],
         "keyword_analysis": kw_res["meta"],
         "keyword_score": keyword_score,
+        "confusable_boost": confusable_boost,
+        "final_score": final_score,
         "whitelisted_domains": whitelisted_domains,
     }

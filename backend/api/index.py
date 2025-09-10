@@ -126,8 +126,12 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
         text_body = get_message_text(message)
         html_body = get_message_html(message)
 
-        # Perform core analysis
-        result = analyze_core(headers, subject, text_body, html_body)
+        # Add sender identity analysis first (needed for scoring)
+        sender_analyzer = SenderIdentityAnalyzer(message)
+        sender_identity = sender_analyzer.analyze()
+
+        # Perform core analysis with sender identity for confusable scoring
+        result = analyze_core(headers, subject, text_body, html_body, sender_identity)
 
         # Add detailed keyword analysis
         from backend.core.keywords import analyze_keywords
@@ -160,8 +164,7 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
         result["subject"] = subject
 
         # Add sender identity analysis (without auth duplication in it)
-        sender_analyzer = SenderIdentityAnalyzer(message)
-        sender_identity = sender_analyzer.analyze()
+        # sender_identity is already created above for scoring
         # Remove auth data from sender_identity since it's handled separately
         if hasattr(sender_identity, "authentication_results"):
             sender_identity.authentication_results = {}
@@ -205,6 +208,40 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
 
         # Add detailed keyword analysis results
         result["keyword_analysis"] = detailed_keyword_analysis
+
+        # Add confusable findings summary for quick access
+        confusable_findings = []
+        if sender_identity.from_confusable_finding:
+            confusable_findings.append(
+                {
+                    "type": "sender_from",
+                    "domain": sender_identity.from_confusable_finding.domain,
+                    "matched_brand": sender_identity.from_confusable_finding.matched_brand,
+                    "skeleton_match": sender_identity.from_confusable_finding.skeleton_match,
+                    "evidence": sender_identity.from_confusable_finding.evidence,
+                }
+            )
+        if sender_identity.reply_to_confusable_finding:
+            confusable_findings.append(
+                {
+                    "type": "sender_reply_to",
+                    "domain": sender_identity.reply_to_confusable_finding.domain,
+                    "matched_brand": sender_identity.reply_to_confusable_finding.matched_brand,
+                    "skeleton_match": sender_identity.reply_to_confusable_finding.skeleton_match,
+                    "evidence": sender_identity.reply_to_confusable_finding.evidence,
+                }
+            )
+        if sender_identity.return_path_confusable_finding:
+            confusable_findings.append(
+                {
+                    "type": "sender_return_path",
+                    "domain": sender_identity.return_path_confusable_finding.domain,
+                    "matched_brand": sender_identity.return_path_confusable_finding.matched_brand,
+                    "skeleton_match": sender_identity.return_path_confusable_finding.skeleton_match,
+                    "evidence": sender_identity.return_path_confusable_finding.evidence,
+                }
+            )
+        result["confusable_findings"] = confusable_findings
 
         # Add processing metadata
         processing_time = time.time() - start_time
