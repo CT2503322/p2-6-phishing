@@ -29,6 +29,10 @@ def render_analysis_results(result: Dict[str, Any]):
     if "subscription" in result:
         render_subscription_metadata(result["subscription"])
 
+    # Routing Information
+    if "routing_data" in result:
+        render_routing_results(result["routing_data"])
+
     # Detailed Results
     if "meta" in result:
         meta = result["meta"]
@@ -432,3 +436,121 @@ def render_subscription_metadata(subscription_data: Dict[str, Any]):
                 st.write(f"• {item}")
         else:
             st.info("No subscription management information found")
+
+
+def render_routing_results(routing_data: Dict[str, Any]):
+    """
+    Render the email routing information in a user-friendly format.
+
+    Args:
+        routing_data: Routing data from the analysis
+    """
+    with st.expander("Email Routing Analysis", expanded=True):
+        st.markdown("**Email Routing & Path Information**")
+
+        # Received headers (routing hops)
+        if routing_data.get("received") and len(routing_data["received"]) > 0:
+            st.markdown("**Mail Routing Path (Received Headers)**")
+
+            for i, received_line in enumerate(routing_data["received"], 1):
+                st.markdown(f"**Hop {i}:**")
+                # Display the raw received line but formatted nicely
+                st.code(received_line.strip(), language="text")
+
+                # Show parsed hop information if available
+                if routing_data.get("hops") and i <= len(routing_data["hops"]):
+                    hop = routing_data["hops"][i - 1]
+                    col1, col2, col3, col4 = st.columns(4)
+
+                    with col1:
+                        if hop.get("by"):
+                            st.markdown("**Received by:**")
+                            st.code(hop["by"], language="text")
+
+                    with col2:
+                        if hop.get("from_"):
+                            st.markdown("**Received from:**")
+                            st.code(hop["from_"], language="text")
+
+                    with col3:
+                        if hop.get("with_"):
+                            st.markdown("**Using protocol:**")
+                            st.code(hop["with_"], language="text")
+
+                    with col4:
+                        if hop.get("timestamp"):
+                            st.markdown("**Timestamp:**")
+                            st.code(hop["timestamp"], language="text")
+                    if i != len(routing_data["received"]):
+                        st.markdown("---")
+        else:
+            st.info("No Received headers found - this appears to be a sent email")
+
+        # X-Received headers
+        if routing_data.get("x_received") and len(routing_data["x_received"]) > 0:
+            st.markdown("---")
+            st.markdown("**X-Received Headers**")
+
+            for i, x_received in enumerate(routing_data["x_received"], 1):
+                st.markdown(f"**X-Received {i}:**")
+                st.code(x_received.strip(), language="text")
+
+        # X-Original-To header
+        if routing_data.get("x_original_to"):
+            st.markdown("---")
+            st.markdown("**Original Recipient**")
+            st.info(f"**X-Original-To:** `{routing_data['x_original_to']}`")
+
+        # Delivered-To header
+        if routing_data.get("delivered_to"):
+            st.markdown("**Final Delivery**")
+            st.success(f"**Delivered-To:** `{routing_data['delivered_to']}`")
+
+        # Summary
+        if (
+            routing_data.get("received")
+            or routing_data.get("x_received")
+            or routing_data.get("x_original_to")
+            or routing_data.get("delivered_to")
+        ):
+            st.markdown("---")
+            st.markdown("**Routing Analysis Summary**")
+
+            summary_items = []
+
+            if routing_data.get("received"):
+                hop_count = len(routing_data["received"])
+                summary_items.append(
+                    f"{hop_count} routing hop{'s' if hop_count != 1 else ''} detected"
+                )
+
+            if routing_data.get("x_received"):
+                x_rec_count = len(routing_data["x_received"])
+                summary_items.append(
+                    f"{x_rec_count} X-Received header{'s' if x_rec_count != 1 else ''}"
+                )
+
+            if routing_data.get("x_original_to"):
+                summary_items.append("Original recipient information available")
+
+            if routing_data.get("delivered_to"):
+                summary_items.append("Final delivery address recorded")
+
+            if summary_items:
+                for item in summary_items:
+                    st.write(f"• {item}")
+
+            # Show total number of routing indicators
+            total_indicators = sum(
+                [
+                    len(routing_data.get("received", [])),
+                    len(routing_data.get("x_received", [])),
+                    1 if routing_data.get("x_original_to") else 0,
+                    1 if routing_data.get("delivered_to") else 0,
+                ]
+            )
+
+            if total_indicators > 0:
+                st.metric("Total Routing Indicators", total_indicators)
+        else:
+            st.info("No routing information found in this email")

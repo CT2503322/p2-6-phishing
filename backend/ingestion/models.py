@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 
 @dataclass
@@ -63,6 +63,24 @@ class ListUnsubscribe:
     mailto: Optional[str] = None
     mailto_subject: Optional[str] = None
     provider: Optional[str] = None
+
+
+@dataclass
+class RoutingHop:
+    timestamp: Optional[str] = None
+    by: Optional[str] = None
+    from_: Optional[str] = None
+    with_: Optional[str] = None
+    comment: Optional[str] = None
+
+
+@dataclass
+class RoutingData:
+    received: List[str]  # Raw received headers
+    hops: List[RoutingHop]  # Parsed routing hops
+    x_received: List[str]
+    x_original_to: Optional[str] = None
+    delivered_to: Optional[str] = None
 
 
 @dataclass
