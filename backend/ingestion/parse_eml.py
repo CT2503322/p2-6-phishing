@@ -15,6 +15,7 @@ from .models import (
     InlineImage,
     RoutingHop,
     RoutingData,
+    RoutingVerdict,
 )
 from .body_cleaner import get_cleaned_body_text, get_cleaned_body_html
 from .metrics import extract_html_metrics, extract_text_metrics
@@ -237,6 +238,9 @@ def eml_to_parts(msg: EmailMessage) -> Dict[str, Any]:
     # Extract routing data
     routing_data = extract_routing_data(msg)
 
+    # Analyze routing verdict
+    routing_verdict = analyze_routing_verdict(routing_data)
+
     # Extract domains and check whitelist
     wl = load_whitelist()
     whitelist_hit = []
@@ -257,6 +261,7 @@ def eml_to_parts(msg: EmailMessage) -> Dict[str, Any]:
         "attachments": [asdict(att) for att in attachments],
         "attachment_findings": [asdict(finding) for finding in attachment_findings],
         "routing_data": asdict(routing_data),
+        "routing_verdict": asdict(routing_verdict),
         "whitelist_hit": [asdict(hit) for hit in whitelist_hit],
     }
 
@@ -407,6 +412,119 @@ def extract_routing_data(msg: EmailMessage) -> RoutingData:
         x_received=x_received,
         x_original_to=x_original_to,
         delivered_to=delivered_to,
+    )
+
+
+def analyze_routing_verdict(routing_data: RoutingData) -> RoutingVerdict:
+    """
+    Analyze routing data and create a condensed verdict.
+
+    Args:
+        routing_data: Parsed routing information
+
+    Returns:
+        RoutingVerdict with analysis results
+    """
+    findings_parts = []
+    evidence_parts = []
+    helo_domain = None
+    helo_ip_mismatch = False
+    suspicious_hop = False
+
+    # Basic received chain count
+    received_chain_count = len(routing_data.received)
+
+    # Analyze first hop for HELO information
+    if routing_data.received:
+        first_received = routing_data.received[0]
+
+        # Extract HELO hostname and IP
+        helo_match = re.search(r"from\s+([^\s(\[]+)", first_received, re.IGNORECASE)
+        if helo_match:
+            helo_hostname = helo_match.group(1).strip("()")
+            helo_domain = helo_hostname
+            evidence_parts.append(f"HELO/EHLO hostname: {helo_hostname}")
+
+            # Check for IP in square brackets
+            ip_match = re.search(r"\[(\d+\.\d+\.\d+\.\d+)\]", first_received)
+            if ip_match:
+                helo_ip = ip_match.group(1)
+                # Check for IP mismatch (simplified - could be expanded with DNS resolution)
+                if helo_hostname != helo_ip:
+                    helo_ip_mismatch = True
+                    evidence_parts.append(
+                        f"HELO IP {helo_ip} may not match hostname {helo_hostname}"
+                    )
+
+    # Check for suspicious hops
+    for i, hop in enumerate(routing_data.hops):
+        # Check for private IPs in external positions
+        if hop.from_:
+            private_ip_match = re.match(
+                r"(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)",
+                hop.from_,
+            )
+            if private_ip_match and i > 0:  # Private IP not in first hop
+                suspicious_hop = True
+                evidence_parts.append(
+                    f"Private IP {hop.from_} found in routing hop {i+1}"
+                )
+
+        # Check for malformed entries
+        if (
+            (not hop.by and not hop.from_)
+            or (hop.by and not hop.from_)
+            or (hop.from_ and not hop.by)
+        ):
+            suspicious_hop = True
+            if not hop.by and not hop.from_:
+                evidence_parts.append(
+                    f"Malformed routing hop {i+1}: missing from and by fields"
+                )
+            elif not hop.from_:
+                evidence_parts.append(
+                    f"Malformed routing hop {i+1}: missing from field"
+                )
+            elif not hop.by:
+                evidence_parts.append(f"Malformed routing hop {i+1}: missing by field")
+
+        # Check for missing timestamp
+        if not hop.timestamp:
+            suspicious_hop = True
+            evidence_parts.append(f"Routing hop {i+1} missing timestamp")
+
+    # Build condensed findings
+    if received_chain_count == 0:
+        findings_parts.append("No routing information present - may be a sent email")
+    elif received_chain_count == 1:
+        findings_parts.append("Minimal routing - direct delivery")
+    elif received_chain_count <= 3:
+        findings_parts.append("Normal routing chain length")
+    else:
+        findings_parts.append(
+            "Extended routing chain - may indicate forwarding or complex delivery path"
+        )
+
+    if helo_ip_mismatch:
+        findings_parts.append("HELO hostname/IP mismatch detected")
+
+    if suspicious_hop:
+        findings_parts.append("Suspicious routing patterns detected")
+    else:
+        findings_parts.append("No obvious routing anomalies")
+
+    routing_findings = "; ".join(findings_parts)
+    evidence = (
+        "; ".join(evidence_parts) if evidence_parts else "Standard routing analysis"
+    )
+
+    return RoutingVerdict(
+        routing_findings=routing_findings,
+        helo_domain=helo_domain,
+        helo_ip_mismatch=helo_ip_mismatch,
+        received_chain_count=received_chain_count,
+        suspicious_hop=suspicious_hop,
+        evidence=evidence,
     )
 
 

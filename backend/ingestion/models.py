@@ -3,6 +3,16 @@ from typing import Optional, Dict, Any, List
 
 
 @dataclass
+class RoutingVerdict:
+    routing_findings: str  # Condensed verdict explanation
+    helo_domain: Optional[str] = None  # HELO domain if present
+    helo_ip_mismatch: bool = False  # True if HELO IP doesn't match declared hostname
+    received_chain_count: int = 0  # Number of received headers
+    suspicious_hop: bool = False  # True if suspicious routing detected
+    evidence: str = ""  # Supporting evidence for the verdict
+
+
+@dataclass
 class Attachment:
     filename: str
     content_type: str

@@ -9,6 +9,7 @@ from backend.ingestion.models import (
     ListUnsubscribe,
     RoutingHop,
     RoutingData,
+    RoutingVerdict,
     UrlFinding,
     KeywordHit,
     SubscriptionMetadata,
@@ -381,6 +382,59 @@ class TestWhitelistHit:
                 scope="invalid",
                 reason="test",
             )
+
+
+class TestRoutingVerdict:
+    """Test cases for RoutingVerdict dataclass."""
+
+    def test_routing_verdict_creation(self):
+        """Test basic RoutingVerdict creation."""
+        verdict = RoutingVerdict(
+            routing_findings="Normal routing chain length; No obvious routing anomalies",
+            helo_domain="mail.example.com",
+            helo_ip_mismatch=False,
+            received_chain_count=2,
+            suspicious_hop=False,
+            evidence="HELO/EHLO hostname: mail.example.com",
+        )
+        assert (
+            verdict.routing_findings
+            == "Normal routing chain length; No obvious routing anomalies"
+        )
+        assert verdict.helo_domain == "mail.example.com"
+        assert verdict.helo_ip_mismatch is False
+        assert verdict.received_chain_count == 2
+        assert verdict.suspicious_hop is False
+        assert verdict.evidence == "HELO/EHLO hostname: mail.example.com"
+
+    def test_routing_verdict_with_suspicious_hop(self):
+        """Test RoutingVerdict with suspicious hop detected."""
+        verdict = RoutingVerdict(
+            routing_findings="Extended routing chain; Suspicious routing patterns detected",
+            helo_domain="mail.example.com",
+            helo_ip_mismatch=True,
+            received_chain_count=5,
+            suspicious_hop=True,
+            evidence="Private IP 192.168.1.1 found in routing hop 2; HELO IP 10.0.0.1 may not match hostname mail.example.com",
+        )
+        assert verdict.helo_ip_mismatch is True
+        assert verdict.suspicious_hop is True
+        assert verdict.received_chain_count == 5
+        assert "Suspicious routing patterns detected" in verdict.routing_findings
+
+    def test_routing_verdict_no_routing_info(self):
+        """Test RoutingVerdict when no routing information is present."""
+        verdict = RoutingVerdict(
+            routing_findings="No routing information present - may be a sent email; No obvious routing anomalies",
+            helo_domain=None,
+            helo_ip_mismatch=False,
+            received_chain_count=0,
+            suspicious_hop=False,
+            evidence="Standard routing analysis",
+        )
+        assert verdict.helo_domain is None
+        assert verdict.received_chain_count == 0
+        assert "No routing information present" in verdict.routing_findings
 
 
 class TestSubscriptionMetadata:

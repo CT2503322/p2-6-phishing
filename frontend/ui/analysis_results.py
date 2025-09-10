@@ -35,7 +35,7 @@ def render_analysis_results(result: Dict[str, Any]):
 
     # Routing Information
     if "routing_data" in result:
-        render_routing_results(result["routing_data"])
+        render_routing_results(result["routing_data"], result.get("routing_verdict"))
 
     # Attachment Findings
     if "attachment_findings" in result and result["attachment_findings"]:
@@ -517,12 +517,15 @@ def render_subscription_metadata(subscription_data: Dict[str, Any]):
             st.info("No subscription management information found")
 
 
-def render_routing_results(routing_data: Dict[str, Any]):
+def render_routing_results(
+    routing_data: Dict[str, Any], routing_verdict: Dict[str, Any] = None
+):
     """
     Render the email routing information in a user-friendly format.
 
     Args:
         routing_data: Routing data from the analysis
+        routing_verdict: Routing verdict with analysis results
     """
     with st.expander("Email Routing Analysis", expanded=True):
         st.markdown("**Email Routing & Path Information**")
@@ -585,6 +588,66 @@ def render_routing_results(routing_data: Dict[str, Any]):
             st.markdown("**Final Delivery**")
             st.success(f"**Delivered-To:** `{routing_data['delivered_to']}`")
 
+        # Routing Verdict
+        if routing_verdict:
+            st.markdown("---")
+            st.markdown("**Routing Sanity Analysis**")
+
+            # Main verdict
+            routing_findings = routing_verdict.get("routing_findings", "")
+            if routing_findings:
+                st.markdown("**Verdict:**")
+                # Color code based on content
+                if (
+                    "Suspicious routing patterns detected" in routing_findings
+                    or "mismatch detected" in routing_findings
+                ):
+                    st.warning(routing_findings)
+                elif "no obvious routing anomalies" in routing_findings.lower():
+                    st.success(routing_findings)
+                else:
+                    st.info(routing_findings)
+
+            # Display key metrics in columns
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                helo_domain = routing_verdict.get("helo_domain")
+                if helo_domain:
+                    st.markdown("**HELO Domain:**")
+                    st.code(helo_domain)
+                else:
+                    st.info("HELO domain not detected")
+
+            with col2:
+                received_chain_count = routing_verdict.get("received_chain_count", 0)
+                st.metric("Routing Chain Length", received_chain_count)
+
+            with col3:
+                suspicious_hop = routing_verdict.get("suspicious_hop", False)
+                if suspicious_hop:
+                    st.error("Suspicious Hops: Detected")
+                else:
+                    st.success("Suspicious Hops: None")
+
+            # HELO IP mismatch info
+            helo_ip_mismatch = routing_verdict.get("helo_ip_mismatch", False)
+            if helo_ip_mismatch:
+                st.markdown("**⚠️ HELO Mismatch:**")
+                st.error("HELO hostname/IP mismatch detected")
+
+            # Evidence
+            evidence = routing_verdict.get("evidence", "")
+            if evidence and evidence != "Standard routing analysis":
+                st.markdown("**Analysis Evidence:**")
+                # Format evidence for readability
+                if "; " in evidence:
+                    evidence_parts = evidence.split("; ")
+                    for part in evidence_parts:
+                        st.write(f"• {part}")
+                else:
+                    st.info(evidence)
+
         # Summary
         if (
             routing_data.get("received")
@@ -614,6 +677,15 @@ def render_routing_results(routing_data: Dict[str, Any]):
 
             if routing_data.get("delivered_to"):
                 summary_items.append("Final delivery address recorded")
+
+            # Add routing verdict summary items
+            if routing_verdict:
+                if routing_verdict.get("helo_domain"):
+                    summary_items.append("HELO/EHLO information extracted")
+                if routing_verdict.get("helo_ip_mismatch"):
+                    summary_items.append("⚠️ HELO hostname/IP mismatch found")
+                if routing_verdict.get("suspicious_hop"):
+                    summary_items.append("⚠️ Suspicious routing patterns detected")
 
             if summary_items:
                 for item in summary_items:
