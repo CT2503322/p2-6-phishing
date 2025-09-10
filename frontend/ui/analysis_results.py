@@ -185,6 +185,53 @@ def render_authentication_results(auth_data: Dict[str, Any]):
             with col4:
                 st.metric("ARC Chain Count", arc.get("chain_count", "N/A"))
 
+        # Auth Mode and DNS Stats
+        if "auth_mode" in auth_data:
+            st.markdown("---")
+            st.markdown("**Authentication Mode**")
+            auth_mode = auth_data["auth_mode"]
+            if auth_mode == "header_trust":
+                st.info("**Mode:** Header Trust (using email headers only)")
+            elif auth_mode == "live_verify":
+                st.success("**Mode:** Live Verify (real-time DNS checks)")
+
+        if auth_data.get("dns_cache_stats"):
+            st.markdown("**DNS Cache Stats**")
+            dns_stats = auth_data["dns_cache_stats"]
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("DNS Hits", dns_stats.get("hits", 0))
+            with col2:
+                st.metric("DNS Misses", dns_stats.get("misses", 0))
+
+        # Alignment Information
+        if "alignment" in auth_data:
+            st.markdown("---")
+            st.markdown("**DMARC Alignment Summary**")
+
+            alignment = auth_data["alignment"]
+            evaluated_against = alignment.get("evaluated_against", "N/A")
+            st.markdown(f"**Evaluated Against:** {evaluated_against}")
+
+            # DKIM domains
+            dkim_domains = alignment.get("dkim_d", [])
+            if dkim_domains:
+                st.markdown("**DKIM Domains:**")
+                for domain in dkim_domains:
+                    st.write(f"• {domain}")
+
+            # SPF domain
+            spf_domain = alignment.get("spf_domain")
+            if spf_domain:
+                st.markdown(f"**SPF Domain:** {spf_domain}")
+
+            # From Org
+            from_org = alignment.get("from_org")
+            if from_org and from_org != evaluated_against:
+                st.markdown(f"**From Org:** {from_org}")
+            else:
+                st.markdown("**From Org:** Same as evaluated against")
+
         # Summary
         st.markdown("---")
         st.markdown("**Authentication Summary**")

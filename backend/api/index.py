@@ -172,7 +172,7 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
         result["sender_identity"] = asdict(sender_identity)
 
         # Add authentication data from auth parser
-        auth_data = get_auth_data(headers)
+        auth_data = get_auth_data(headers, auth_mode="header_trust")
         result["auth"] = auth_data
 
         # Add raw authentication headers for detailed analysis

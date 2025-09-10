@@ -136,9 +136,10 @@ def test_get_auth_data_with_headers():
         "Authentication-Results": "mail.example.com; dkim=pass header.i=@example.com header.s=default header.b=abc123; spf=pass smtp.mailfrom=sender@example.com; dmarc=pass header.from=sender@example.com",
         "ARC-Authentication-Results": "mail.example.com; dkim=pass header.i=@example.com header.s=default header.b=abc123",
         "ARC-Seal": "i=1; a=rsa-sha256; t=1234567890; cv=none; d=example.com; s=arc-20160816; b=seal_here",
+        "From": "John Doe <john@sender.example.com>",
     }
 
-    result = get_auth_data(headers)
+    result = get_auth_data(headers, auth_mode="header_trust")
 
     assert result["spf"] is not None
     assert result["spf"]["result"] == "pass"
@@ -147,6 +148,17 @@ def test_get_auth_data_with_headers():
     assert result["arc"] is not None
     assert result["arc"]["instance"] == 1
     assert result["arc"]["cv"] == "none"
+
+    # Test new fields
+    assert "auth_mode" in result
+    assert result["auth_mode"] == "header_trust"
+    assert "dns_cache_stats" not in result  # Should not be present for header_trust
+    assert "alignment" in result
+    alignment = result["alignment"]
+    assert alignment["evaluated_against"] == "sender@example.com"
+    assert "example.com" in alignment["dkim_d"]
+    assert alignment["spf_domain"] == "example.com"
+    assert alignment["from_org"] == "sender@example.com"
 
 
 def test_get_auth_data_no_auth_headers():
@@ -186,3 +198,52 @@ def test_parse_multiple_dkim():
     assert result["dkim"][1]["result"] == "pass"
     assert result["dkim"][1]["d"] == "sendgrid.info"
     assert result["dkim"][1]["s"] == "smtpapi"
+
+
+def test_get_auth_data_live_verify_mode():
+    """Test get_auth_data with live_verify mode."""
+    headers = {
+        "Authentication-Results": "mail.example.com; dkim=pass header.i=@example.com header.s=default header.b=abc123; spf=pass smtp.mailfrom=sender@example.com; dmarc=pass header.from=sender@example.com",
+        "From": "sender@example.com",
+    }
+
+    result = get_auth_data(
+        headers, auth_mode="live_verify", dns_cache_stats={"hits": 5, "misses": 2}
+    )
+
+    assert result["auth_mode"] == "live_verify"
+    assert "dns_cache_stats" in result
+    assert result["dns_cache_stats"]["hits"] == 5
+    assert result["dns_cache_stats"]["misses"] == 2
+    assert "alignment" in result
+
+
+def test_get_auth_data_header_trust_without_dns_stats():
+    """Test get_auth_data with header_trust mode and no DNS stats."""
+    headers = {
+        "Authentication-Results": "mail.example.com; spf=pass smtp.mailfrom=sender@example.com; dmarc=pass header.from=sender@example.com",
+        "From": "sender@example.com",
+    }
+
+    result = get_auth_data(headers, auth_mode="header_trust")
+
+    assert result["auth_mode"] == "header_trust"
+    assert "dns_cache_stats" not in result
+    assert "alignment" in result
+    alignment = result["alignment"]
+    assert alignment["evaluated_against"] == "sender@example.com"
+    assert alignment["spf_domain"] == "example.com"
+
+
+def test_alignment_structure_no_dmarc():
+    """Test alignment when DMARC is not present."""
+    headers = {
+        "Authentication-Results": "mail.example.com; spf=pass smtp.mailfrom=sender@example.com",
+        "From": "John Doe <john@info.tada.global>",
+    }
+
+    result = get_auth_data(headers)
+    alignment = result["alignment"]
+    assert alignment["evaluated_against"] == "info.tada.global"
+    assert alignment["spf_domain"] == "example.com"  # Domain from mailfrom
+    assert alignment["from_org"] == "info.tada.global"
