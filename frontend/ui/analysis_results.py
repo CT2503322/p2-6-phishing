@@ -15,7 +15,35 @@ def render_analysis_results(result: Dict[str, Any]):
     """
     st.success("Analysis Complete!")
 
-    # Scoring removed - no risk score display
+    # Display overall score and label
+    if "score_total" in result and "label" in result:
+        col1, col2, col3 = st.columns([2, 1, 1])
+
+        with col1:
+            st.header("🎯 Analysis Result")
+
+        with col2:
+            score = result["score_total"]
+            if score >= result.get("threshold_used", 3.2):
+                st.metric("Risk Score", f"{score:.2f}", "⚠️ HIGH")
+            elif score >= (result.get("threshold_used", 3.2) * 0.5):
+                st.metric("Risk Score", f"{score:.2f}", "⚠️ MEDIUM")
+            else:
+                st.metric("Risk Score", f"{score:.2f}", "✅ LOW")
+
+        with col3:
+            label = result["label"]
+            if label == "PHISHING":
+                st.error("🚨 PHISHING")
+            else:
+                st.success("✅ SAFE")
+
+        st.markdown("---")
+
+    # Rule-by-rule breakdown
+    if "scored_analysis" in result:
+        scored_analysis = result["scored_analysis"]
+        render_rule_breakdown(scored_analysis)
 
     # Sender Identity Analysis
     if "sender_identity" in result:
@@ -1875,5 +1903,195 @@ def render_whitelist_hit_results(whitelist_hits: list):
             - **Apex**: Root domain allows all subdomains
             - **Subdomain**: Specific subdomain allowed
             - **Reason**: Source or category of the whitelist entry
+            """
+            )
+
+
+def render_rule_breakdown(scored_analysis: Dict[str, Any]):
+    """
+    Render the comprehensive rule-based scoring breakdown.
+
+    Args:
+        scored_analysis: The scored analysis from the backend containing rule breakdown
+    """
+    if not scored_analysis:
+        return
+
+    with st.expander("⚖️ Rule-by-Rule Scoring Breakdown", expanded=True):
+        st.markdown("**Detailed Rule Analysis**")
+        st.markdown(
+            "Each security rule contributes to the overall phishing risk score:"
+        )
+
+        # Get rule breakdown
+        score_breakdown = scored_analysis.get("score_breakdown", [])
+        tuning_profile = scored_analysis.get("tuning_profile", "default")
+        threshold_used = scored_analysis.get("threshold_used", 3.2)
+
+        # Summary metrics
+        total_rules = len(score_breakdown)
+        triggered_rules = sum(
+            1 for rule in score_breakdown if rule.get("delta", 0) != 0
+        )
+        positive_contributions = sum(
+            rule.get("delta", 0) for rule in score_breakdown if rule.get("delta", 0) > 0
+        )
+        negative_contributions = sum(
+            rule.get("delta", 0) for rule in score_breakdown if rule.get("delta", 0) < 0
+        )
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Rules Evaluated", total_rules)
+        with col2:
+            high_contrib = sum(
+                1 for rule in score_breakdown if abs(rule.get("delta", 0)) >= 1.0
+            )
+            st.metric("High Impact Rules", high_contrib)
+        with col3:
+            st.metric("Profile Used", tuning_profile.upper())
+        with col4:
+            st.metric("Threshold Used", f"{threshold_used:.1f}")
+
+        # Rule breakdown table
+        if score_breakdown:
+            st.markdown("---")
+            st.markdown("**Individual Rule Contributions**")
+
+            import pandas as pd
+
+            table_data = []
+            for i, rule in enumerate(score_breakdown, 1):
+                delta = rule.get("delta", 0)
+                rule_name = rule.get("rule", "unknown")
+                evidence = rule.get("evidence", "")
+
+                # Truncate evidence for display
+                if len(evidence) > 100:
+                    evidence_preview = evidence[:100] + "..."
+                else:
+                    evidence_preview = evidence
+
+                table_data.append(
+                    {
+                        "#": i,
+                        "Rule": rule_name.replace("_", " ").title(),
+                        "Score Delta": f"{delta:+.2f}",
+                        "Risk Level": (
+                            "High"
+                            if abs(delta) >= 1.5
+                            else "Medium" if abs(delta) >= 0.5 else "Low"
+                        ),
+                        "Evidence": evidence_preview,
+                    }
+                )
+
+            df = pd.DataFrame(table_data)
+            st.dataframe(
+                df,
+                use_container_width=True,
+                column_config={
+                    "#": st.column_config.NumberColumn("#", width="small"),
+                    "Rule": st.column_config.TextColumn("Rule", width="large"),
+                    "Score Delta": st.column_config.TextColumn(
+                        "Score Delta", width="medium"
+                    ),
+                    "Risk Level": st.column_config.TextColumn(
+                        "Risk Level", width="medium"
+                    ),
+                    "Evidence": st.column_config.TextColumn("Evidence", width="large"),
+                },
+                hide_index=True,
+            )
+
+            # Top risk factors
+            high_impact_rules = [
+                rule for rule in score_breakdown if abs(rule.get("delta", 0)) >= 1.0
+            ]
+
+            if high_impact_rules:
+                st.markdown("---")
+                st.markdown("**⚠️ Top Risk Factors**")
+
+                for i, rule in enumerate(
+                    sorted(
+                        high_impact_rules,
+                        key=lambda x: abs(x.get("delta", 0)),
+                        reverse=True,
+                    )[:5],
+                    1,
+                ):
+                    rule_name = rule.get("rule", "").replace("_", " ").title()
+                    delta = rule.get("delta", 0)
+                    evidence = rule.get("evidence", "")
+
+                    if delta >= 1.0:
+                        st.error(f"**{i}. {rule_name}:** +{delta:.2f} points")
+                        if evidence:
+                            st.write(f"   _{evidence}_")
+                    else:
+                        st.warning(f"**{i}. {rule_name}:** {delta:+.2f} points")
+                        if evidence:
+                            st.write(f"   _{evidence}_")
+
+                    if i < len(high_impact_rules) and i < 5:
+                        st.write("")
+
+            # Contribution analysis
+            if triggered_rules > 0:
+                st.markdown("---")
+                st.markdown("**Scoring Contribution Analysis**")
+
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.markdown("**Positive Contributions:**")
+                    positive_rules = [
+                        r for r in score_breakdown if r.get("delta", 0) > 0
+                    ]
+                    for rule in sorted(
+                        positive_rules, key=lambda x: x.get("delta", 0), reverse=True
+                    )[:3]:
+                        rule_name = rule["rule"].replace("_", " ").title()
+                        delta = rule["delta"]
+                        st.write(f"• {rule_name}: **+{delta:.2f}**")
+
+                    if len(positive_rules) > 3:
+                        st.write(f"*... and {len(positive_rules) - 3} more*")
+
+                with col2:
+                    st.markdown("**Most Infrequent Triggers:**")
+                    unique_evidence = set(
+                        rule.get("evidence", "") for rule in score_breakdown
+                    )
+                    st.metric("Unique Evidence Types", len(unique_evidence))
+
+                    # Show rules with evidence that aren't frequently used
+                    evidence_counts = {}
+                    for rule in score_breakdown:
+                        evidence = rule.get("evidence", "")
+                        if evidence:
+                            evidence_counts[evidence] = (
+                                evidence_counts.get(evidence, 0) + 1
+                            )
+
+                    rare_evidence = [
+                        e for e, count in evidence_counts.items() if count == 1
+                    ][:3]
+                    for ev in rare_evidence:
+                        st.write(f"• _{ev[:50]}{'...' if len(ev) > 50 else ''}_")
+
+        else:
+            st.info("No security rules were evaluated or triggered.")
+
+        # Scoring configuration
+        with st.expander("🔧 Scoring Configuration", expanded=False):
+            st.markdown(
+                f"""
+            **Current Scoring Setup:**
+            - **Profile:** `{tuning_profile}`
+            - **Threshold:** `{threshold_used}` (above = PHISHING, below = SAFE)
+            - **Total Rules:** `{total_rules}`
+            - **Rule Types Evaluated:** URL analysis, sender identity, content patterns, keyword frenzy, brand spoofing
             """
             )

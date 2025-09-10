@@ -3,7 +3,7 @@ from typing import Dict, Any
 from pathlib import Path
 from dataclasses import asdict
 
-from backend.core.score import analyze as analyze_core
+from backend.core.score import analyze_with_rules as analyze_core
 from backend.ingestion.edit_distance import DETECTOR as EDIT_DISTANCE_DETECTOR
 from backend.ingestion.parse_eml import (
     eml_to_parts,

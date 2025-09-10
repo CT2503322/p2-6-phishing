@@ -1,5 +1,18 @@
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
+from enum import Enum
+
+
+class Label(Enum):
+    SAFE = "SAFE"
+    PHISHING = "PHISHING"
+
+
+@dataclass
+class RuleScore:
+    rule: str  # e.g., "url_punycode", "replyto_mismatch"
+    delta: float  # ± weight applied to total score
+    evidence: str  # Explanation of why this rule was triggered
 
 
 @dataclass
@@ -168,3 +181,14 @@ class SubscriptionMetadata:
     list_unsubscribe_post: Optional[str] = None
     feedback_id: Optional[str] = None
     precedence: Optional[str] = None
+
+
+@dataclass
+class ScoredAnalysis:
+    """Comprehensive analysis with detailed rule-based scoring."""
+
+    score_breakdown: List[RuleScore]
+    score_total: float
+    label: Label
+    threshold_used: float
+    tuning_profile: str

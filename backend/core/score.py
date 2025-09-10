@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 import re
 from ..ingestion.body_cleaner import strip_html_tags
 from ..ingestion.confusables import DETECTOR
+from ..ingestion.models import RuleScore, ScoredAnalysis, Label
 
 # Configuration constants
 WHITELIST_PATH = "backend/data/whitelist.txt"
@@ -154,3 +155,255 @@ def analyze(
         "final_score": final_score,
         "whitelisted_domains": whitelisted_domains,
     }
+
+
+def _detect_url_anomalies(content: str) -> List[RuleScore]:
+    """Detect URL-related security anomalies."""
+    rules = []
+    urls = URL_PATTERN.findall(content)
+
+    for url in urls:
+        try:
+            parsed = urlparse(url)
+
+            # Rule: URL Punycode detection
+            if parsed.netloc and parsed.netloc.startswith("xn--"):
+                rules.append(
+                    RuleScore(
+                        rule="url_punycode",
+                        delta=2.0,
+                        evidence=f"Punycode URL detected: {url}",
+                    )
+                )
+
+            # Rule: URL IP literal detection
+            IP_PATTERN = re.compile(r"^(?:\d{1,3}\.){3}\d{1,3}$")
+            if parsed.netloc and IP_PATTERN.match(parsed.netloc):
+                rules.append(
+                    RuleScore(
+                        rule="url_ip_literal",
+                        delta=1.5,
+                        evidence=f"IP literal URL detected: {url}",
+                    )
+                )
+
+            # Rule: URL shortener detection
+            SHORTENERS = [
+                "bit.ly",
+                "t.co",
+                "tinyurl.com",
+                "goo.gl",
+                "ow.ly",
+                "fb.me",
+                "tiny.cc",
+                "is.gd",
+                "buff.ly",
+            ]
+            if parsed.netloc and any(
+                shortener in parsed.netloc.lower() for shortener in SHORTENERS
+            ):
+                rules.append(
+                    RuleScore(
+                        rule="url_shortener",
+                        delta=1.0,
+                        evidence=f"URL shortener detected: {url}",
+                    )
+                )
+
+        except Exception:
+            continue
+
+    return rules
+
+
+def _evaluate_sender_identity(sender_identity: Any) -> List[RuleScore]:
+    """Evaluate sender identity for security issues."""
+    rules = []
+
+    if not sender_identity:
+        return rules
+
+    # Rule: Reply-to mismatch
+    from_domain = sender_identity.from_domain or ""
+    reply_to_domain = sender_identity.reply_to_domain or ""
+    return_path_domain = sender_identity.return_path_domain or ""
+
+    if reply_to_domain and from_domain != reply_to_domain:
+        rules.append(
+            RuleScore(
+                rule="replyto_mismatch",
+                delta=1.5,
+                evidence=f"Reply-To domain '{reply_to_domain}' differs from From domain '{from_domain}'",
+            )
+        )
+
+    # Rule: Return-path mismatch
+    if return_path_domain and from_domain != return_path_domain:
+        rules.append(
+            RuleScore(
+                rule="return_path_mismatch",
+                delta=1.0,
+                evidence=f"Return-Path domain '{return_path_domain}' differs from From domain '{from_domain}'",
+            )
+        )
+
+    # Rule: No SPF record match (from auth data)
+    if hasattr(sender_identity, "spf_result") and sender_identity.spf_result == "fail":
+        rules.append(
+            RuleScore(
+                rule="spf_failure",
+                delta=2.0,
+                evidence="SPF authentication failed for sender domain",
+            )
+        )
+
+    # Rule: No DKIM signature
+    if (
+        hasattr(sender_identity, "dkim_verifications")
+        and not sender_identity.dkim_verifications
+    ):
+        rules.append(
+            RuleScore(
+                rule="dkim_missing", delta=1.0, evidence="No DKIM signatures found"
+            )
+        )
+
+    return rules
+
+
+def _evaluate_content_patterns(subject: str, body: str, html: str) -> List[RuleScore]:
+    """Evaluate content patterns for phishing indicators."""
+    rules = []
+
+    combined_content = subject + "\n" + body + "\n" + html
+
+    # Rule: High urgency keywords
+    urgency_keywords = [
+        "urgent",
+        "asap",
+        "immediately",
+        "now",
+        "immediate action",
+        "action required",
+    ]
+    urgency_count = sum(1 for kw in urgency_keywords if kw in combined_content.lower())
+    if urgency_count >= 2:
+        rules.append(
+            RuleScore(
+                rule="high_urgency",
+                delta=1.5,
+                evidence=f"High urgency pattern detected ({urgency_count} keywords)",
+            )
+        )
+
+    # Rule: Suspicious HTML patterns
+    if html and "<script" in html.lower():
+        rules.append(
+            RuleScore(
+                rule="javascript_injection",
+                delta=2.5,
+                evidence="JavaScript code detected in HTML content",
+            )
+        )
+
+    # Rule: Many exclamation marks
+    exclamation_count = combined_content.count("!")
+    if exclamation_count >= 10:
+        rules.append(
+            RuleScore(
+                rule="excessive_exclamation",
+                delta=0.5,
+                evidence=f"Excessive exclamation marks ({exclamation_count})",
+            )
+        )
+
+    return rules
+
+
+def analyze_with_rules(
+    headers: Dict[str, Any],
+    subject: str,
+    body: str,
+    html: str,
+    sender_identity: Any = None,
+    threshold: float = 3.2,
+    tuning_profile: str = "default",
+) -> Dict[str, Any]:
+    """
+    Analyze email and return detailed rule-based scoring.
+
+    Returns:
+        Dictionary containing legacy analysis plus new ScoredAnalysis object
+    """
+    # Get legacy analysis results
+    legacy_analysis = analyze(headers, subject, body, html, sender_identity)
+
+    # Collect rule scores
+    rule_scores = []
+
+    # URL anomaly detection
+    all_content = subject + "\n" + body + "\n" + html
+    rule_scores.extend(_detect_url_anomalies(all_content))
+
+    # Sender identity evaluation
+    rule_scores.extend(_evaluate_sender_identity(sender_identity))
+
+    # Content pattern evaluation
+    rule_scores.extend(_evaluate_content_patterns(subject, body, html))
+
+    # Base keyword scoring
+    keyword_score = legacy_analysis["keyword_score"]
+    if keyword_score > 0:
+        rule_scores.append(
+            RuleScore(
+                rule="keyword_frenzy",
+                delta=keyword_score,
+                evidence=f"Keyword analysis score: {keyword_score:.2f}",
+            )
+        )
+
+    # Confusable/brand spoofing boost
+    confusable_boost = legacy_analysis["confusable_boost"]
+    if confusable_boost > 0:
+        rule_scores.append(
+            RuleScore(
+                rule="brand_spoofing",
+                delta=confusable_boost,
+                evidence=f"Brand spoofing detected: boost of {confusable_boost:.2f}",
+            )
+        )
+
+    # Calculate total score from rules
+    score_total = sum(rule.delta for rule in rule_scores)
+
+    # Determine label based on threshold
+    label = Label.PHISHING if score_total >= threshold else Label.SAFE
+
+    # Create ScoredAnalysis object
+    scored_analysis = ScoredAnalysis(
+        score_breakdown=rule_scores,
+        score_total=score_total,
+        label=label,
+        threshold_used=threshold,
+        tuning_profile=tuning_profile,
+    )
+
+    # Update legacy result with comprehensive analysis
+    legacy_analysis.update(
+        {
+            "scored_analysis": {
+                "score_breakdown": [
+                    {"rule": r.rule, "delta": r.delta, "evidence": r.evidence}
+                    for r in rule_scores
+                ],
+                "score_total": score_total,
+                "label": label.value,
+                "threshold_used": threshold,
+                "tuning_profile": tuning_profile,
+            },
+            "score_total": score_total,
+            "label": label.value,
+        }
+    )
+
+    return legacy_analysis
