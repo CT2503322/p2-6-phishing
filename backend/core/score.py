@@ -63,57 +63,18 @@ def analyze(
     kw_res = check_keywords(subject, body)
     wl_res = check_whitelist(subject, body, html)
 
-    # Extract domains from all content
+    # Extract domains from all content (removed since this is now handled at API level)
     all_content = subject + "\n" + body + "\n" + html
     domains = extract_domains(all_content)
 
     # Aggregate reasons (without scoring)
     reasons = wl_res["reasons"]
-    # Removed scoring logic
 
-    # Extract key headers for display
-    key_headers = {
-        "from": headers.get("From", ""),
-        "to": headers.get("To", ""),
-        "cc": headers.get("Cc", ""),
-        "bcc": headers.get("Bcc", ""),
-        "date": headers.get("Date", ""),
-        "reply_to": headers.get("Reply-To", ""),
-        "return_path": headers.get("Return-Path", ""),
-        "message_id": headers.get("Message-ID", ""),
-        "content_type": headers.get("Content-Type", ""),
-    }
-
-    # Create body preview (first 500 characters)
-    body_preview = body[:500] + ("..." if len(body) > 500 else "")
-
-    # Create HTML preview if present
-    html_preview = ""
-    html_text = ""
-    if html:
-        # Strip HTML tags for preview using improved function
-        html_clean = strip_html_tags(html)
-        html_preview = html_clean[:500] + ("..." if len(html_clean) > 500 else "")
-        # Full HTML text without truncation
-        html_text = html_clean
+    # Get whitelist information for domains (for frontend display)
+    whitelisted_domains = [d for d in domains if is_whitelisted(d, wl)]
 
     return {
         "reasons": reasons,
-        "meta": {
-            **kw_res["meta"],
-            "headers": headers,
-            "key_headers": key_headers,
-            "subject": subject,
-            "body_preview": body_preview,
-            "html_preview": html_preview,
-            "html_text": html_text,
-            "domains": list(domains),
-            "whitelisted_domains": [d for d in domains if is_whitelisted(d, wl)],
-            "content_stats": {
-                "body_length": len(body),
-                "html_length": len(html),
-                "has_html": bool(html),
-                "domain_count": len(domains),
-            },
-        },
+        "keywords": kw_res["meta"]["keywords"],
+        "whitelisted_domains": whitelisted_domains,
     }

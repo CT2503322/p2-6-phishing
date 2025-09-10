@@ -4,8 +4,15 @@ from pathlib import Path
 from dataclasses import asdict
 
 from backend.core.score import analyze as analyze_core
-from backend.ingestion.parse_eml import eml_to_parts, validate_email_message
+from backend.ingestion.parse_eml import (
+    eml_to_parts,
+    validate_email_message,
+    get_message_text,
+    get_message_html,
+)
 from backend.ingestion.sender_identity import SenderIdentityAnalyzer
+from backend.ingestion.headers import HeaderNormalizer
+from backend.ingestion.auth_parser import get_auth_data
 from dataclasses import asdict
 from fastapi import UploadFile, FastAPI, File, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -112,38 +119,72 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
         # Extract email components
         parts = eml_to_parts(message)
 
-        # Perform analysis
-        result = analyze_core(
-            parts["headers"], parts["subject"], parts["body"], parts["html"]
-        )
+        # Get headers for analysis
+        header_normalizer = HeaderNormalizer(message)
+        headers = header_normalizer.get_all_headers()
+        subject = message.get("Subject", "") or ""
+        text_body = get_message_text(message)
+        html_body = get_message_html(message)
 
-        # Add sender identity analysis
+        # Perform core analysis
+        result = analyze_core(headers, subject, text_body, html_body)
+
+        # Clean up the result - remove redundant fields from score.py analysis
+        if "meta" in result:
+            # Keep these from the meta section
+            if "keywords" in result["meta"]:
+                result["keywords"] = result["meta"]["keywords"]
+            # Remove the entire meta block as requested
+            del result["meta"]
+
+        # Create key_headers structure
+        key_headers = {
+            "from": headers.get("From", ""),
+            "to": headers.get("To", ""),
+            "cc": headers.get("Cc", ""),
+            "bcc": headers.get("Bcc", ""),
+            "date": headers.get("Date", ""),
+            "reply_to": headers.get("Reply-To", ""),
+            "return_path": headers.get("Return-Path", ""),
+            "message_id": headers.get("Message-ID", ""),
+            "content_type": headers.get("Content-Type", ""),
+        }
+        result["key_headers"] = key_headers
+        result["subject"] = subject
+
+        # Add sender identity analysis (without auth duplication in it)
         sender_analyzer = SenderIdentityAnalyzer(message)
         sender_identity = sender_analyzer.analyze()
+        # Remove auth data from sender_identity since it's handled separately
+        if hasattr(sender_identity, "authentication_results"):
+            sender_identity.authentication_results = {}
         result["sender_identity"] = asdict(sender_identity)
 
-        # Add authentication data if available
-        if "auth" in parts:
-            result["auth"] = parts["auth"]
+        # Add authentication data from auth parser
+        auth_data = get_auth_data(headers)
+        result["auth"] = auth_data
 
-        # Add subscription metadata if available
-        if "subscription" in parts:
-            result["subscription"] = asdict(parts["subscription"])
+        # Add subscription metadata
+        subscription_metadata = header_normalizer.get_subscription_metadata()
+        result["subscription"] = asdict(subscription_metadata)
 
-        # Add MIME parts metadata
-        if "mime_parts" in parts:
-            result["mime_parts"] = parts["mime_parts"]
+        # Create domains list from all content
+        from backend.core.score import extract_domains
 
-        # Add HTML metrics
-        if "html_metrics" in parts:
-            result["html_metrics"] = parts["html_metrics"]
+        all_content = subject + "\n" + text_body + "\n" + html_body
+        domains = list(extract_domains(all_content))
+        result["domains"] = domains
 
-        # Add text metrics
-        if "text_metrics" in parts:
-            result["text_metrics"] = parts["text_metrics"]
+        # Create HTML text (full extracted text)
+        if html_body:
+            from backend.ingestion.body_cleaner import strip_html_tags
 
-        # Add attachments (ensure it's always present)
-        result["attachments"] = parts.get("attachments", [])
+            result["html_text"] = strip_html_tags(html_body)
+        else:
+            result["html_text"] = ""
+
+        # Add parsed components from eml_to_parts
+        result.update(parts)
 
         # Add processing metadata
         processing_time = time.time() - start_time

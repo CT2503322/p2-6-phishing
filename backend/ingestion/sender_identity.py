@@ -27,9 +27,6 @@ class SenderIdentity:
     esp_confidence: float = 0.0
     esp_indicators: List[str] = None
 
-    # Authentication data
-    authentication_results: Dict[str, Any] = None
-
     # Mismatch detection
     has_from_reply_mismatch: bool = False
     mismatch_details: List[str] = None
@@ -41,8 +38,6 @@ class SenderIdentity:
     def __post_init__(self):
         if self.esp_indicators is None:
             self.esp_indicators = []
-        if self.authentication_results is None:
-            self.authentication_results = {}
         if self.mismatch_details is None:
             self.mismatch_details = []
 
@@ -117,9 +112,6 @@ class SenderIdentityAnalyzer:
         # Detect ESP
         esp_info = self._detect_esp()
 
-        # Get authentication data
-        auth_data = get_auth_data(self.header_normalizer.get_all_headers())
-
         # Check for mismatches
         mismatch_info = self._check_mismatches(
             from_address, reply_to_address, from_domain, reply_to_domain
@@ -140,7 +132,6 @@ class SenderIdentityAnalyzer:
             email_service_provider=esp_info["provider"],
             esp_confidence=esp_info["confidence"],
             esp_indicators=esp_info["indicators"],
-            authentication_results=auth_data,
             has_from_reply_mismatch=mismatch_info["has_mismatch"],
             mismatch_details=mismatch_info["details"],
             sending_ip=sending_ip,

@@ -207,12 +207,8 @@ def eml_to_parts(msg: EmailMessage) -> Dict[str, Any]:
     text = get_message_text(msg)
     html = get_message_html(msg)
 
-    headers = {k: str(v) for k, v in msg.items()}
-    auth = get_auth_data(headers)
-
     # Extract subscription metadata
     header_normalizer = HeaderNormalizer(msg)
-    subscription_metadata = header_normalizer.get_subscription_metadata()
 
     # Create multipart parser for MIME analysis
     parser = MultiPartParser(message=msg)
@@ -230,16 +226,10 @@ def eml_to_parts(msg: EmailMessage) -> Dict[str, Any]:
     attachments = parser.get_attachments()
 
     return {
-        "headers": headers,
-        "subject": subject,
-        "body": text,
-        "html": html,
         "mime_parts": [asdict(part) for part in mime_parts],
         "html_metrics": asdict(html_metrics),
         "text_metrics": asdict(text_metrics),
         "attachments": [asdict(att) for att in attachments],
-        "auth": auth,
-        "subscription": subscription_metadata,
     }
 
 
