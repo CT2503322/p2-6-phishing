@@ -129,6 +129,13 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
         # Perform core analysis
         result = analyze_core(headers, subject, text_body, html_body)
 
+        # Add detailed keyword analysis
+        from backend.core.keywords import analyze_keywords
+
+        detailed_keyword_analysis = analyze_keywords(
+            subject, text_body, use_positions=True
+        )
+
         # Clean up the result - remove redundant fields from score.py analysis
         if "meta" in result:
             # Keep these from the meta section
@@ -195,6 +202,9 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
             html_metrics = result["html_metrics"]
             if "url_findings" in html_metrics and html_metrics["url_findings"]:
                 result["url_findings"] = html_metrics["url_findings"]
+
+        # Add detailed keyword analysis results
+        result["keyword_analysis"] = detailed_keyword_analysis
 
         # Add processing metadata
         processing_time = time.time() - start_time

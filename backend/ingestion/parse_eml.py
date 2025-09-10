@@ -231,6 +231,9 @@ def eml_to_parts(msg: EmailMessage) -> Dict[str, Any]:
     routing_data = extract_routing_data(msg)
 
     return {
+        "subject": subject,
+        "text_body": text,  # Plain text body for keyword analysis
+        "html_body": html,  # HTML body for completeness
         "mime_parts": [asdict(part) for part in mime_parts],
         "html_metrics": asdict(html_metrics),
         "text_metrics": asdict(text_metrics),

@@ -108,6 +108,15 @@ class UrlFinding:
 
 
 @dataclass
+class KeywordHit:
+    term: str
+    weight: float
+    where: str  # subject | body
+    pos: int  # char index; 0-based
+    window: str  # e.g., subject, body_0_500
+
+
+@dataclass
 class SubscriptionMetadata:
     list_unsubscribe: Optional[ListUnsubscribe] = None
     list_unsubscribe_post: Optional[str] = None

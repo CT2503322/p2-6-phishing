@@ -47,7 +47,7 @@ def render_analysis_results(result: Dict[str, Any]):
                 keywords = meta["keywords"]
                 if keywords:
                     for keyword in keywords:
-                        st.write(f"• {keyword['word']} (count: {keyword['count']})")
+                        st.write(f"• {keyword['keyword']} (count: {keyword['count']})")
                 else:
                     st.write("No suspicious keywords detected")
 
@@ -74,6 +74,10 @@ def render_analysis_results(result: Dict[str, Any]):
     # URL Findings
     if "url_findings" in result and result["url_findings"]:
         render_url_findings_results(result["url_findings"])
+
+    # Detailed Keyword Analysis
+    if "keyword_analysis" in result:
+        render_keyword_analysis_results(result["keyword_analysis"])
 
     # Content Analysis Summary
     if "html_text" in result or "domains" in result:
@@ -676,15 +680,15 @@ def render_url_findings_results(url_findings: Dict[str, Any]):
 
             # Color coding based on threat level
             if finding.get("is_ip_literal"):
-                st.error(f"⚠️ **HIGH RISK** - IP Literal URL {i}")
+                st.error(f"**HIGH RISK** - IP Literal URL {i}")
             elif finding.get("is_shortener"):
-                st.warning(f"⚠️ **MEDIUM RISK** - URL Shortener {i}")
+                st.warning(f"**MEDIUM RISK** - URL Shortener {i}")
             elif finding.get("text_href_mismatch"):
-                st.warning(f"⚠️ **MEDIUM RISK** - Mismatched Text {i}")
+                st.warning(f"**MEDIUM RISK** - Mismatched Text {i}")
             elif finding.get("is_punycode"):
-                st.warning(f"⚠️ **MEDIUM RISK** - IDN/Punycode URL {i}")
+                st.warning(f"**MEDIUM RISK** - IDN/Punycode URL {i}")
             else:
-                st.success(f"✅ **LOW RISK** - Clean URL {i}")
+                st.success(f"**LOW RISK** - Clean URL {i}")
 
             # Display URL details
             col1, col2 = st.columns([2, 1])
@@ -699,7 +703,7 @@ def render_url_findings_results(url_findings: Dict[str, Any]):
                     # Truncate long URLs for display
                     display_url = url[:60] + "..." if len(url) > 60 else url
                     st.code(display_url, language="text")
-                    st.markdown(f"[🔗 Open URL]({url})", unsafe_allow_html=True)
+                    st.markdown(f"[Open URL]({url})", unsafe_allow_html=True)
                 else:
                     st.code("N/A")
 
@@ -717,35 +721,33 @@ def render_url_findings_results(url_findings: Dict[str, Any]):
 
             if finding.get("is_ip_literal"):
                 risk_indicators.append(
-                    "🖥️ **IP Address** - Uses IP instead of domain name"
+                    "**IP Address** - Uses IP instead of domain name"
                 )
 
             if finding.get("is_punycode"):
                 risk_indicators.append(
-                    "🀄 **IDN/Punycode** - International Domain Name encoding"
+                    "**IDN/Punycode** - International Domain Name encoding"
                 )
 
             if finding.get("skeleton_match"):
                 risk_indicators.append(
-                    "🎭 **Skeleton Match** - Confusable character detection"
+                    "**Skeleton Match** - Confusable character detection"
                 )
 
             if finding.get("is_shortener"):
-                risk_indicators.append(
-                    "🔗 **URL Shortener** - Link obfuscation service"
-                )
+                risk_indicators.append("**URL Shortener** - Link obfuscation service")
 
             if finding.get("text_href_mismatch"):
                 risk_indicators.append(
-                    "📝 **Text Mismatch** - Link text doesn't match destination"
+                    "**Text Mismatch** - Link text doesn't match destination"
                 )
 
             if finding.get("brand_match"):
                 brand = finding.get("brand_match")
-                risk_indicators.append(f"🏢 **Brand Match** - Recognized as {brand}")
+                risk_indicators.append(f"**Brand Match** - Recognized as {brand}")
 
             if not risk_indicators:
-                risk_indicators.append("✅ **Clean** - No obvious security concerns")
+                risk_indicators.append("**Clean** - No obvious security concerns")
 
             if risk_indicators:
                 st.markdown("**Analysis:**")
@@ -769,15 +771,15 @@ def render_url_findings_results(url_findings: Dict[str, Any]):
         summary_items = []
 
         if suspicious_count > 0:
-            summary_items.append(f"⚠️ {suspicious_count} suspicious URL(s) detected")
+            summary_items.append(f"{suspicious_count} suspicious URL(s) detected")
         else:
-            summary_items.append("✅ No suspicious URLs found")
+            summary_items.append("No suspicious URLs found")
 
         summary_items.append(f"{total_urls} total URL(s) analyzed")
 
         if any(f.get("brand_match") for f in url_findings):
             brand_count = sum(1 for f in url_findings if f.get("brand_match"))
-            summary_items.append(f"🏢 {brand_count} recognized brand domain(s)")
+            summary_items.append(f"{brand_count} recognized brand domain(s)")
 
         for item in summary_items:
             st.write(f"• {item}")
@@ -841,3 +843,185 @@ def render_content_analysis(result: Dict[str, Any]):
             for i, (label, value) in enumerate(metrics_data):
                 with metric_cols[i]:
                     st.metric(label, value)
+
+
+def render_keyword_analysis_results(keyword_analysis: Dict[str, Any]):
+    """
+    Render the detailed keyword analysis results in a user-friendly format.
+
+    Args:
+        keyword_analysis: Keyword analysis data from the backend
+    """
+    if not keyword_analysis:
+        return
+
+    with st.expander("🔍 Advanced Keyword Analysis (Position-Aware)", expanded=True):
+        st.markdown("**Position-Aware Keyword Detection**")
+        st.markdown(
+            "Keywords are weighted based on their position in the email to better assess phishing risk:"
+        )
+
+        # Overall metrics
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            total_hits = len(keyword_analysis.get("keyword_hits", []))
+            st.metric("Total Keyword Hits", total_hits)
+
+        with col2:
+            total_score = keyword_analysis.get("total_score", 0.0)
+            # Determine risk level based on score
+            if total_score >= 10.0:
+                st.metric("Risk Score", f"{total_score:.1f}", "High")
+            elif total_score >= 5.0:
+                st.metric("Risk Score", f"{total_score:.1f}", "Medium")
+            else:
+                st.metric("Risk Score", f"{total_score:.1f}", "Low")
+
+        with col3:
+            unique_keywords = len(keyword_analysis.get("term_stats", {}))
+            st.metric("Unique Keywords", unique_keywords)
+
+        # Term Statistics (most important keywords)
+        term_stats = keyword_analysis.get("term_stats", {})
+
+        if term_stats:
+            st.markdown("---")
+            st.markdown("**Keyword Statistics & Positions**")
+
+            # Sort by total score (descending)
+            sorted_terms = sorted(
+                term_stats.items(),
+                key=lambda x: x[1].get("total_score", 0),
+                reverse=True,
+            )
+
+            # Create a table/dataframe for better display
+            import pandas as pd
+
+            table_data = []
+            for term, stats in sorted_terms:
+                positions = stats.get("positions", [])
+                windows = list(set(stats.get("windows", [])))
+
+                table_data.append(
+                    {
+                        "Keyword": term,
+                        "Hits": stats.get("count", 0),
+                        "Total Score": round(stats.get("total_score", 0), 2),
+                        "Positions": ", ".join([f"#{p}" for p in positions[:3]]),
+                        "Windows": ", ".join(windows),
+                    }
+                )
+
+            # Show first 10 most significant keywords
+            if table_data:
+                df = pd.DataFrame(table_data[:10])
+                st.dataframe(
+                    df,
+                    use_container_width=True,
+                    column_config={
+                        "Keyword": st.column_config.TextColumn(
+                            "Keyword", width="medium"
+                        ),
+                        "Hits": st.column_config.NumberColumn("Hits", width="small"),
+                        "Total Score": st.column_config.NumberColumn(
+                            "Total Score", width="small"
+                        ),
+                        "Positions": st.column_config.TextColumn(
+                            "Positions", width="large"
+                        ),
+                        "Windows": st.column_config.TextColumn(
+                            "Windows", width="large"
+                        ),
+                    },
+                )
+
+                if len(table_data) > 10:
+                    st.write(f"*... and {len(table_data) - 10} more keywords*")
+
+        # Detailed hits breakdown (show first few)
+        keyword_hits = keyword_analysis.get("keyword_hits", [])
+        if keyword_hits:
+            st.markdown("---")
+            st.markdown("**Detailed Keyword Hits**")
+            st.markdown("Each keyword hit with position information:")
+
+            # Show first 8 hits
+            for i, hit in enumerate(keyword_hits[:8], 1):
+                term = hit.get("term", "")
+                where = hit.get("where", "")
+                pos = hit.get("pos", 0)
+                weight = hit.get("weight", 0.0)
+                window = hit.get("window", "")
+
+                # Color coding based on weight
+                if weight >= 2.0:
+                    st.error(
+                        f"**{i}.** `{term}` - **{where}** position {pos} (weight: {weight:.2f})"
+                    )
+                elif weight >= 1.0:
+                    st.warning(
+                        f"**{i}.** `{term}` - {where} position {pos} (weight: {weight:.2f})"
+                    )
+                else:
+                    st.info(
+                        f"**{i}.** `{term}` - {where} position {pos} (weight: {weight:.2f})"
+                    )
+
+                # Window information
+                if window:
+                    st.write(f"   Window: `{window}`")
+
+                if i < len(keyword_hits[:8]):
+                    st.write("")
+
+            if len(keyword_hits) > 8:
+                st.write(f"*... and {len(keyword_hits) - 8} more hits*")
+
+        # Analysis summary
+        st.markdown("---")
+        st.markdown("**Analysis Summary**")
+
+        summary_items = []
+
+        if total_score >= 10.0:
+            summary_items.append("**HIGH RISK** - Suspicious keyword patterns detected")
+        elif total_score >= 5.0:
+            summary_items.append("**MEDIUM RISK** - Some concerning keywords found")
+        else:
+            summary_items.append("**LOW RISK** - Few or no suspicious keywords")
+
+        if "urgent" in [hit.get("term", "") for hit in keyword_hits]:
+            summary_items.append("Urgency keywords detected")
+        if "password" in [hit.get("term", "") for hit in keyword_hits]:
+            summary_items.append("Password-related keywords detected")
+        if "click here" in [hit.get("term", "") for hit in keyword_hits]:
+            summary_items.append("Call-to-action keywords detected")
+
+        # Subject vs Body distribution
+        subject_hits = sum(1 for hit in keyword_hits if hit.get("where") == "subject")
+        body_hits = sum(1 for hit in keyword_hits if hit.get("where") == "body")
+
+        if subject_hits > 0:
+            summary_items.append(f"{subject_hits} keyword(s) in subject line")
+        if body_hits > 0:
+            summary_items.append(f"{body_hits} keyword(s) in email body")
+
+        if summary_items:
+            for item in summary_items:
+                st.write(f"• {item}")
+        else:
+            st.info("No significant keyword analysis available")
+
+        # Technical notes
+        with st.expander("ℹTechnical Details", expanded=False):
+            st.markdown(
+                """
+            **Position Weighting System:**
+            - **Subject keywords**: 3x multiplier (highest impact)
+            - **Early body keywords** (first 500 chars): Linear decay from 2x to 1x
+            - **Late body keywords**: 1x base weight
+            - **Window types**: 'subject', 'body_0_500', 'body'
+            """
+            )

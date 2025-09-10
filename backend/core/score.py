@@ -1,5 +1,6 @@
 from typing import Dict, Any, List
-from .keywords import find
+from .keywords import analyze_keywords
+from .position import calculate_positioned_score
 from .whitelist import load_whitelist, is_whitelisted
 from urllib.parse import urlparse
 import re
@@ -43,8 +44,15 @@ def extract_domains(text: str) -> set[str]:
 
 
 def check_keywords(subject: str, body: str) -> Dict[str, Any]:
-    kws = find(subject + "\n" + body)
-    return {"meta": {"keywords": kws}}
+    # Use new position-aware keyword analysis
+    keyword_analysis = analyze_keywords(subject, body, use_positions=True)
+    return {
+        "meta": keyword_analysis,
+        "simplified_keywords": [
+            {"keyword": hit.term, "count": 1}
+            for hit in keyword_analysis["keyword_hits"]
+        ],
+    }
 
 
 def check_whitelist(subject: str, body: str, html: str) -> Dict[str, Any]:
@@ -69,12 +77,21 @@ def analyze(
 
     # Aggregate reasons (without scoring)
     reasons = wl_res["reasons"]
+    keyword_score = kw_res["meta"]["total_score"]
+
+    # Add keyword-based reasons if score is high
+    if keyword_score >= 3.0:
+        reasons.append(f"HIGH_KEYWORD_SCORE:{keyword_score:.1f}")
+    elif keyword_score >= 1.5:
+        reasons.append(f"MEDIUM_KEYWORD_SCORE:{keyword_score:.1f}")
 
     # Get whitelist information for domains (for frontend display)
     whitelisted_domains = [d for d in domains if is_whitelisted(d, wl)]
 
     return {
         "reasons": reasons,
-        "keywords": kw_res["meta"]["keywords"],
+        "keywords": kw_res["simplified_keywords"],
+        "keyword_analysis": kw_res["meta"],
+        "keyword_score": keyword_score,
         "whitelisted_domains": whitelisted_domains,
     }
