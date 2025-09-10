@@ -37,6 +37,10 @@ def render_analysis_results(result: Dict[str, Any]):
     if "routing_data" in result:
         render_routing_results(result["routing_data"])
 
+    # Attachment Findings
+    if "attachment_findings" in result and result["attachment_findings"]:
+        render_attachment_findings_results(result["attachment_findings"])
+
     # Detailed Results
     if "meta" in result:
         meta = result["meta"]
@@ -1385,3 +1389,224 @@ def render_keyword_analysis_results(keyword_analysis: Dict[str, Any]):
             - **Window types**: 'subject', 'body_0_500', 'body'
             """
             )
+
+
+def render_attachment_findings_results(attachment_findings: list):
+    """
+    Render the attachment findings in a user-friendly format.
+
+    Args:
+        attachment_findings: List of attachment findings from the analysis
+    """
+    if not attachment_findings:
+        return
+
+    with st.expander("📎 Attachment Analysis & Security Findings", expanded=True):
+        st.markdown("**Email Attachment Analysis**")
+        st.markdown("Security analysis of files attached to the email:")
+
+        # Summary metrics
+        total_attachments = len(attachment_findings)
+        dangerous_types = sum(
+            1 for f in attachment_findings if f.get("is_dangerous_type")
+        )
+        macro_enabled = sum(1 for f in attachment_findings if f.get("is_macro_enabled"))
+        archives_with_dangerous = sum(
+            1 for f in attachment_findings if f.get("archive_contains_dangerous")
+        )
+        double_extensions = sum(1 for f in attachment_findings if f.get("double_ext"))
+        mime_mismatches = sum(
+            1
+            for f in attachment_findings
+            if f.get("sniffed_mime") and f["sniffed_mime"] != f.get("declared_mime")
+        )
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total Attachments", total_attachments)
+        with col2:
+            st.metric(
+                "Potentially Dangerous",
+                dangerous_types + macro_enabled + archives_with_dangerous,
+            )
+        with col3:
+            st.metric("Suspicious Patterns", double_extensions + mime_mismatches)
+
+        # Individual attachment findings
+        for i, finding in enumerate(attachment_findings, 1):
+            filename = finding.get("filename", "N/A")
+            ext_primary = finding.get("ext_primary", "")
+            declared_mime = finding.get("declared_mime", "")
+            sniffed_mime = finding.get("sniffed_mime")
+            is_macro_enabled = finding.get("is_macro_enabled", False)
+            is_dangerous_type = finding.get("is_dangerous_type", False)
+            is_archive = finding.get("is_archive", False)
+            archive_contains_dangerous = finding.get("archive_contains_dangerous")
+            double_ext = finding.get("double_ext", False)
+            evidence = finding.get("evidence", "")
+
+            # Determine threat level
+            threat_level = "low"
+            high_risk_indicators = 0
+
+            if is_dangerous_type:
+                high_risk_indicators += 1
+            if double_ext:
+                high_risk_indicators += 1
+            if archive_contains_dangerous:
+                high_risk_indicators += 1
+            if sniffed_mime and sniffed_mime != declared_mime:
+                high_risk_indicators += 1
+
+            if high_risk_indicators >= 2 or (is_dangerous_type and double_ext):
+                threat_level = "high"
+            elif (
+                high_risk_indicators >= 1
+                or is_macro_enabled
+                or archive_contains_dangerous
+            ):
+                threat_level = "medium"
+
+            # Color coding based on threat level
+            if threat_level == "high":
+                st.error(f"**HIGH RISK** - Attachment {i}")
+            elif threat_level == "medium":
+                st.warning(f"**MEDIUM RISK** - Attachment {i}")
+            else:
+                st.success(f"**LOW RISK** - Attachment {i}")
+
+            # Display attachment details
+            col1, col2 = st.columns([1, 1])
+
+            with col1:
+                st.markdown("**Filename:**")
+                st.code(filename)
+
+                st.markdown("**Primary Extension:**")
+                if ext_primary:
+                    st.code(ext_primary)
+                else:
+                    st.info("No extension")
+
+                st.markdown("**Declared MIME Type:**")
+                st.code(declared_mime)
+
+                if sniffed_mime:
+                    st.markdown("**Sniffed MIME Type:**")
+                    if sniffed_mime == declared_mime:
+                        st.success(sniffed_mime)
+                    else:
+                        st.error(sniffed_mime + " (MISMATCH)")
+
+            with col2:
+                st.markdown("**Security Analysis:**")
+
+                # Security flags
+                security_flags = []
+
+                if is_macro_enabled:
+                    security_flags.append(
+                        "⚠️ **Macros Detected** - Potential VBA/Office macro content"
+                    )
+
+                if is_dangerous_type:
+                    security_flags.append(
+                        f"⚠️ **Dangerous Type** - {ext_primary} files should not be sent via email"
+                    )
+
+                if double_ext:
+                    security_flags.append(
+                        "⚠️ **Double Extension** - Filename has multiple extensions (possible obfuscation)"
+                    )
+
+                if is_archive:
+                    security_flags.append(
+                        "📦 **Archive File** - Contains multiple files"
+                    )
+                    if archive_contains_dangerous is True:
+                        security_flags.append(
+                            "🚨 **DANGEROUS CONTENT** - Archive contains executable or malicious files"
+                        )
+                    elif archive_contains_dangerous is False:
+                        security_flags.append(
+                            "✅ **Archive Safe** - No dangerous files detected"
+                        )
+                    else:
+                        security_flags.append(
+                            "❓ **Archive Not Scanned** - Content inspection unavailable"
+                        )
+
+                if not security_flags:
+                    security_flags.append("✅ **Clean** - No obvious security concerns")
+
+                for flag in security_flags:
+                    st.write(flag)
+
+            # Evidence
+            if evidence and evidence != "No suspicious patterns detected":
+                st.markdown("**Analysis Evidence:**")
+                # Format evidence for better readability
+                if "; " in evidence:
+                    evidence_parts = evidence.split("; ")
+                    for part in evidence_parts:
+                        st.write(f"• {part}")
+                else:
+                    st.info(evidence)
+
+            # Separator between attachments
+            if i < len(attachment_findings):
+                st.markdown("---")
+
+        # Overall summary
+        st.markdown("---")
+        st.markdown("**Attachment Analysis Summary**")
+
+        summary_items = []
+
+        if total_attachments > 0:
+            summary_items.append(f"{total_attachments} attachment(s) analyzed")
+        else:
+            summary_items.append("No attachments found")
+
+        # Security summary
+        security_concerns = []
+        if dangerous_types > 0:
+            security_concerns.append(f"{dangerous_types} dangerous file type(s)")
+        if macro_enabled > 0:
+            security_concerns.append(f"{macro_enabled} macro-enabled file(s)")
+        if archives_with_dangerous > 0:
+            security_concerns.append(
+                f"{archives_with_dangerous} archive(s) with dangerous content"
+            )
+        if double_extensions > 0:
+            security_concerns.append(f"{double_extensions} double extension file(s)")
+        if mime_mismatches > 0:
+            security_concerns.append(f"{mime_mismatches} MIME type mismatch(es)")
+
+        if security_concerns:
+            summary_items.append(
+                "⚠️ **SECURITY CONCERNS:** " + ", ".join(security_concerns)
+            )
+        else:
+            summary_items.append("✅ **No security concerns detected**")
+
+        # Archive inspection status
+        archives_inspected = sum(1 for f in attachment_findings if f.get("is_archive"))
+        archives_not_inspected = sum(
+            1
+            for f in attachment_findings
+            if f.get("is_archive") and f.get("archive_contains_dangerous") is None
+        )
+
+        if archives_inspected > 0:
+            if archives_not_inspected > 0:
+                summary_items.append(
+                    f"{archives_inspected - archives_not_inspected}/{archives_inspected} archives successfully inspected"
+                )
+            else:
+                summary_items.append(
+                    f"{archives_inspected} archives successfully inspected"
+                )
+
+        for item in summary_items:
+            st.write(item)

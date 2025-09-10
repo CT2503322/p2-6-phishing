@@ -128,6 +128,20 @@ class LookalikeFinding:
 
 
 @dataclass
+class AttachmentFinding:
+    filename: str
+    ext_primary: str  # e.g., .exe, .docm
+    double_ext: bool  # parsed pair like .pdf.exe
+    declared_mime: str
+    is_macro_enabled: bool
+    is_dangerous_type: bool
+    is_archive: bool
+    evidence: str
+    sniffed_mime: Optional[str] = None  # optional if magic sniff fails
+    archive_contains_dangerous: Optional[bool] = None  # null if not inspected
+
+
+@dataclass
 class SubscriptionMetadata:
     list_unsubscribe: Optional[ListUnsubscribe] = None
     list_unsubscribe_post: Optional[str] = None

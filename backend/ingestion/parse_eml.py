@@ -16,6 +16,7 @@ from .models import (
 )
 from .body_cleaner import get_cleaned_body_text, get_cleaned_body_html
 from .metrics import extract_html_metrics, extract_text_metrics
+from .attachment_analysis import AttachmentAnalyzer
 
 
 class EmlReader:
@@ -227,6 +228,9 @@ def eml_to_parts(msg: EmailMessage) -> Dict[str, Any]:
     # Get attachments (ensure it's always a list, even if empty)
     attachments = parser.get_attachments()
 
+    # Analyze attachments for security findings
+    attachment_findings = AttachmentAnalyzer.analyze_attachments(attachments)
+
     # Extract routing data
     routing_data = extract_routing_data(msg)
 
@@ -238,6 +242,7 @@ def eml_to_parts(msg: EmailMessage) -> Dict[str, Any]:
         "html_metrics": asdict(html_metrics),
         "text_metrics": asdict(text_metrics),
         "attachments": [asdict(att) for att in attachments],
+        "attachment_findings": [asdict(finding) for finding in attachment_findings],
         "routing_data": asdict(routing_data),
     }
 
