@@ -71,6 +71,14 @@ def render_analysis_results(result: Dict[str, Any]):
                 else:
                     st.write("No headers detected")
 
+    # URL Findings
+    if "url_findings" in result and result["url_findings"]:
+        render_url_findings_results(result["url_findings"])
+
+    # Content Analysis Summary
+    if "html_text" in result or "domains" in result:
+        render_content_analysis(result)
+
     # Raw JSON (for debugging)
     with st.expander("Raw Analysis Data"):
         st.json(result)
@@ -571,128 +579,265 @@ def render_raw_authentication_headers(raw_auth_headers: Dict[str, Any]):
         return
 
     with st.expander("Raw Authentication Headers", expanded=False):
-        st.markdown("**Raw Authentication Data for Analysis**")
+        st.markdown("**Raw Authentication Data**")
 
         # Authentication-Results header
         if "authentication_results" in raw_auth_headers:
             st.markdown("**Authentication-Results Header**")
             st.code(raw_auth_headers["authentication_results"], language="text")
-            st.markdown(
-                "This header contains summarized SPF, DKIM, DMARC, and ARC results from the receiving mail server."
-            )
+            st.markdown("• Contains SPF, DKIM, DMARC, and ARC results")
 
         # DKIM-Signature headers
         if "dkim_signature" in raw_auth_headers:
             st.markdown("---")
             st.markdown("**DKIM-Signature Headers**")
-
             dkim_data = raw_auth_headers["dkim_signature"]
             if isinstance(dkim_data, list):
-                for i, signature in enumerate(dkim_data, 1):
-                    st.markdown(f"**DKIM Signature {i}:**")
-                    st.code(signature, language="text")
+                for i, sig in enumerate(dkim_data, 1):
+                    st.code(sig, language="text")
                     if i < len(dkim_data):
                         st.markdown("")
             else:
                 st.code(dkim_data, language="text")
+            st.markdown("• Verifies email authenticity and prevents modification")
 
-            st.markdown(
-                "DKIM signatures verify the email was not modified in transit and authenticate the sender domain."
-            )
+        # SPF/Reported-SPF headers
+        if any(key in raw_auth_headers for key in ["received_spf", "reported_spf"]):
+            st.markdown("---")
+            st.markdown("**SPF Headers**")
+            for key in ["received_spf", "reported_spf"]:
+                if key in raw_auth_headers:
+                    spf_data = raw_auth_headers[key]
+                    if isinstance(spf_data, list):
+                        for i, spf in enumerate(spf_data, 1):
+                            st.code(spf, language="text")
+                    else:
+                        st.code(spf_data, language="text")
+            st.markdown("• Validates sender IP address against authorized SPF records")
 
         # ARC headers
-        arc_headers_present = False
-        if "arc_seal" in raw_auth_headers:
-            if not arc_headers_present:
-                st.markdown("---")
-                st.markdown("**ARC (Authenticated Received Chain) Headers**")
-                arc_headers_present = True
-
-            st.markdown("**ARC-Seal:**")
-            st.code(raw_auth_headers["arc_seal"], language="text")
-            st.markdown(
-                "ARC-Seal provides cryptographic verification that the email passed through authenticated servers."
-            )
-
-        if "arc_message_signature" in raw_auth_headers:
-            if not arc_headers_present:
-                st.markdown("---")
-                st.markdown("**ARC (Authenticated Received Chain) Headers**")
-                arc_headers_present = True
-
-            st.markdown("**ARC-Message-Signature:**")
-            st.code(raw_auth_headers["arc_message_signature"], language="text")
-            st.markdown(
-                "ARC-Message-Signature cryptographically signs the message content for chain validation."
-            )
-
-        if "arc_authentication_results" in raw_auth_headers:
-            if not arc_headers_present:
-                st.markdown("---")
-                st.markdown("**ARC (Authenticated Received Chain) Headers**")
-                arc_headers_present = True
-
-            st.markdown("**ARC-Authentication-Results:**")
-            st.code(raw_auth_headers["arc_authentication_results"], language="text")
-            st.markdown(
-                "ARC-Authentication-Results contains the authentication results from previous hops in the chain."
-            )
-
-        # Received-SPF headers
-        if "received_spf" in raw_auth_headers:
+        arc_headers = [key for key in raw_auth_headers.keys() if key.startswith("arc_")]
+        if arc_headers:
             st.markdown("---")
-            st.markdown("**Received-SPF Headers**")
-
-            spf_data = raw_auth_headers["received_spf"]
-            if isinstance(spf_data, list):
-                for i, spf_header in enumerate(spf_data, 1):
-                    st.markdown(f"**Received-SPF {i}:**")
-                    st.code(spf_header, language="text")
-                    if i < len(spf_data):
-                        st.markdown("")
-            else:
-                st.code(spf_data, language="text")
-
-            st.markdown(
-                "Received-SPF shows the SPF evaluation results from the receiving mail server, including IP validation and domain matching."
-            )
+            st.markdown("**ARC (Authenticated Received Chain) Headers**")
+            for header in sorted(arc_headers):
+                st.markdown(f"**{header}:**")
+                st.code(raw_auth_headers[header], language="text")
+                st.markdown("• Chain validation for authenticated email transfers")
 
         # Summary
-        if raw_auth_headers:
-            st.markdown("---")
-            st.markdown("**Raw Authentication Headers Summary**")
+        header_count = len(raw_auth_headers)
+        st.markdown("---")
+        st.markdown(f"**Total headers:** {header_count}")
 
-            header_count = len(raw_auth_headers)
-            st.info(
-                f"Found {header_count} raw authentication header{'s' if header_count != 1 else ''}"
+
+def render_url_findings_results(url_findings: Dict[str, Any]):
+    """
+    Render the URL findings in a user-friendly format.
+
+    Args:
+        url_findings: URL findings data from the analysis
+    """
+    if not url_findings:
+        return
+
+    with st.expander("URL Analysis & Findings", expanded=True):
+        st.markdown("**URL Link Analysis**")
+        st.markdown("Links found in the email content with security analysis:")
+
+        # Summary metrics
+        total_urls = len(url_findings)
+        suspicious_count = sum(
+            1
+            for finding in url_findings
+            if finding.get("is_ip_literal")
+            or finding.get("is_shortener")
+            or finding.get("text_href_mismatch")
+            or (finding.get("is_punycode") and finding.get("skeleton_match"))
+        )
+
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("Total URLs", total_urls)
+        with col2:
+            st.metric("Suspicious URLs", suspicious_count)
+        with col3:
+            st.metric("Safe URLs", total_urls - suspicious_count)
+
+        # Individual URL findings
+        for i, finding in enumerate(url_findings, 1):
+            # Determine if suspicious
+            is_suspicious = (
+                finding.get("is_ip_literal")
+                or finding.get("is_shortener")
+                or finding.get("text_href_mismatch")
+                or (finding.get("is_punycode") and finding.get("skeleton_match"))
             )
 
-            # Count individual headers
-            details = []
-            if "authentication_results" in raw_auth_headers:
-                details.append("Authentication-Results")
-            if "dkim_signature" in raw_auth_headers:
-                if isinstance(raw_auth_headers["dkim_signature"], list):
-                    details.append(
-                        f"{len(raw_auth_headers['dkim_signature'])} DKIM Signatures"
-                    )
-                else:
-                    details.append("DKIM Signature")
-            if "received_spf" in raw_auth_headers:
-                if isinstance(raw_auth_headers["received_spf"], list):
-                    details.append(
-                        f"{len(raw_auth_headers['received_spf'])} Received-SPF"
-                    )
-                else:
-                    details.append("Received-SPF")
+            # Color coding based on threat level
+            if finding.get("is_ip_literal"):
+                st.error(f"⚠️ **HIGH RISK** - IP Literal URL {i}")
+            elif finding.get("is_shortener"):
+                st.warning(f"⚠️ **MEDIUM RISK** - URL Shortener {i}")
+            elif finding.get("text_href_mismatch"):
+                st.warning(f"⚠️ **MEDIUM RISK** - Mismatched Text {i}")
+            elif finding.get("is_punycode"):
+                st.warning(f"⚠️ **MEDIUM RISK** - IDN/Punycode URL {i}")
+            else:
+                st.success(f"✅ **LOW RISK** - Clean URL {i}")
 
-            arc_count = sum(
-                1 for key in raw_auth_headers.keys() if key.startswith("arc_")
-            )
-            if arc_count > 0:
-                details.append(f"{arc_count} ARC headers")
+            # Display URL details
+            col1, col2 = st.columns([2, 1])
 
-            if details:
-                st.write("Available headers: " + " | ".join(details))
+            with col1:
+                st.markdown("**Link Text:**")
+                st.info(f'"{finding.get("text", "N/A")}"')
+
+                st.markdown("**URL:**")
+                url = finding.get("href", "")
+                if url:
+                    # Truncate long URLs for display
+                    display_url = url[:60] + "..." if len(url) > 60 else url
+                    st.code(display_url, language="text")
+                    st.markdown(f"[🔗 Open URL]({url})", unsafe_allow_html=True)
+                else:
+                    st.code("N/A")
+
+            with col2:
+                st.markdown("**Domain:**")
+                domain = finding.get("netloc", "N/A")
+                st.code(domain)
+
+                st.markdown("**Position:**")
+                pos = finding.get("first_seen_pos", 0)
+                st.code(f"#{pos}")
+
+            # Risk indicators
+            risk_indicators = []
+
+            if finding.get("is_ip_literal"):
+                risk_indicators.append(
+                    "🖥️ **IP Address** - Uses IP instead of domain name"
+                )
+
+            if finding.get("is_punycode"):
+                risk_indicators.append(
+                    "🀄 **IDN/Punycode** - International Domain Name encoding"
+                )
+
+            if finding.get("skeleton_match"):
+                risk_indicators.append(
+                    "🎭 **Skeleton Match** - Confusable character detection"
+                )
+
+            if finding.get("is_shortener"):
+                risk_indicators.append(
+                    "🔗 **URL Shortener** - Link obfuscation service"
+                )
+
+            if finding.get("text_href_mismatch"):
+                risk_indicators.append(
+                    "📝 **Text Mismatch** - Link text doesn't match destination"
+                )
+
+            if finding.get("brand_match"):
+                brand = finding.get("brand_match")
+                risk_indicators.append(f"🏢 **Brand Match** - Recognized as {brand}")
+
+            if not risk_indicators:
+                risk_indicators.append("✅ **Clean** - No obvious security concerns")
+
+            if risk_indicators:
+                st.markdown("**Analysis:**")
+                for indicator in risk_indicators:
+                    st.write(f"• {indicator}")
+
+            # Evidence
+            evidence = finding.get("evidence", "")
+            if evidence:
+                st.markdown("**Evidence:**")
+                st.info(evidence)
+
+            # Separator between URLs
+            if i < len(url_findings):
+                st.markdown("---")
+
+        # Overall summary
+        st.markdown("---")
+        st.markdown("**URL Analysis Summary**")
+
+        summary_items = []
+
+        if suspicious_count > 0:
+            summary_items.append(f"⚠️ {suspicious_count} suspicious URL(s) detected")
         else:
-            st.info("No raw authentication headers found in this email")
+            summary_items.append("✅ No suspicious URLs found")
+
+        summary_items.append(f"{total_urls} total URL(s) analyzed")
+
+        if any(f.get("brand_match") for f in url_findings):
+            brand_count = sum(1 for f in url_findings if f.get("brand_match"))
+            summary_items.append(f"🏢 {brand_count} recognized brand domain(s)")
+
+        for item in summary_items:
+            st.write(f"• {item}")
+
+
+def render_content_analysis(result: Dict[str, Any]):
+    """
+    Render content analysis summary.
+
+    Args:
+        result: Analysis results from the API
+    """
+    with st.expander("Content Analysis Summary", expanded=False):
+        st.markdown("**Email Content Overview**")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            # Domains
+            if "domains" in result and result["domains"]:
+                st.markdown("**Domains Found:**")
+                domains = list(
+                    set(result["domains"][:10])
+                )  # Show first 10 unique domains
+                for domain in domains:
+                    st.write(f"• {domain}")
+
+                total_domains = len(set(result["domains"]))
+                if total_domains > 10:
+                    st.write(f"*... and {total_domains - 10} more*")
+            else:
+                st.write("• No domains detected")
+
+        with col2:
+            # HTML text preview
+            if "html_text" in result and result["html_text"]:
+                st.markdown("**Content Preview:**")
+                text_preview = result["html_text"].strip()[:200]
+                if len(result["html_text"]) > 200:
+                    text_preview += "..."
+                st.info(text_preview)
+            else:
+                st.info("No text content available")
+
+        # HTML metrics
+        if "html_metrics" in result:
+            html_metrics = result["html_metrics"]
+
+            st.markdown("---")
+            st.markdown("**HTML Structure Metrics**")
+
+            metric_cols = st.columns(4)
+
+            metrics_data = [
+                ("Length", f"{html_metrics.get('length', 0):,} chars"),
+                ("Links", html_metrics.get("link_count", 0)),
+                ("Images", html_metrics.get("image_count", 0)),
+                ("Remote CSS", "Yes" if html_metrics.get("remote_css") else "No"),
+            ]
+
+            for i, (label, value) in enumerate(metrics_data):
+                with metric_cols[i]:
+                    st.metric(label, value)

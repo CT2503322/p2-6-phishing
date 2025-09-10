@@ -190,6 +190,12 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
         # Add parsed components from eml_to_parts
         result.update(parts)
 
+        # Add explicit URL findings section from html_metrics
+        if "html_metrics" in result:
+            html_metrics = result["html_metrics"]
+            if "url_findings" in html_metrics and html_metrics["url_findings"]:
+                result["url_findings"] = html_metrics["url_findings"]
+
         # Add processing metadata
         processing_time = time.time() - start_time
         result["metadata"] = {

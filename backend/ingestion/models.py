@@ -36,6 +36,11 @@ class HtmlMetrics:
     uses_soft_hyphen: bool = False
     has_emoji_in_subject: bool = False
     non_ascii_ratio: float = 0.0
+    url_findings: List["UrlFinding"] = None
+
+    def __post_init__(self):
+        if self.url_findings is None:
+            self.url_findings = []
 
 
 @dataclass
@@ -81,6 +86,25 @@ class RoutingData:
     x_received: List[str]
     x_original_to: Optional[str] = None
     delivered_to: Optional[str] = None
+
+
+@dataclass
+class UrlFinding:
+    text: str  # anchor text as rendered, trimmed
+    href: str  # absolute, after resolving base if any
+    netloc: str  # domain:port
+    is_ip_literal: bool
+    is_punycode: bool  # netloc.startswith('xn--')
+    is_shortener: (
+        bool  # e.g., bit.ly, t.co, tinyurl, goo.gl, cutt.ly, rebrand.ly, lnkd.in, etc.
+    )
+    text_href_mismatch: (
+        bool  # normalized text domain ≠ href domain when text looks like a URL/brand
+    )
+    first_seen_pos: int  # char index in HTML/text for position weighting
+    evidence: str  # string for explanation
+    skeleton_match: Optional[bool] = None  # see confusables
+    brand_match: Optional[str] = None  # if URL domain maps to a known brand
 
 
 @dataclass

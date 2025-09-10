@@ -6,8 +6,10 @@ including link counts, image counts, language detection, emoji detection, etc.
 """
 
 import re
-from typing import Optional, Tuple
-from .models import HtmlMetrics, TextMetrics
+import ipaddress
+from urllib.parse import urlparse, urljoin
+from typing import Optional, Tuple, List
+from .models import HtmlMetrics, TextMetrics, UrlFinding
 from .body_cleaner import strip_html_tags
 
 
@@ -88,6 +90,9 @@ def extract_html_metrics(html_content: str, subject: str = "") -> HtmlMetrics:
     ascii_chars = sum(1 for c in html_content if ord(c) < 128)
     non_ascii_ratio = 1.0 - (ascii_chars / length) if length > 0 else 0.0
 
+    # Extract URL findings
+    url_findings = extract_url_findings(html_content)
+
     return HtmlMetrics(
         length=length,
         link_count=link_count,
@@ -98,6 +103,7 @@ def extract_html_metrics(html_content: str, subject: str = "") -> HtmlMetrics:
         uses_soft_hyphen=uses_soft_hyphen,
         has_emoji_in_subject=has_emoji_in_subject,
         non_ascii_ratio=non_ascii_ratio,
+        url_findings=url_findings,
     )
 
 
@@ -273,3 +279,235 @@ def detect_language(text: str) -> Optional[str]:
             return max_lang[0]
 
     return None
+
+
+def extract_url_findings(html_content: str) -> List[UrlFinding]:
+    """
+    Extract URLs from HTML content and analyze them for phishing indicators.
+
+    Args:
+        html_content: HTML content to analyze
+
+    Returns:
+        List of UrlFinding objects with detailed analysis
+    """
+    if not html_content:
+        return []
+
+    findings = []
+    seen_urls = set()  # Track unique URLs to avoid duplicates
+
+    # Extract base URL if present
+    base_url = _extract_base_url(html_content)
+    base_parsed = urlparse(base_url) if base_url else None
+
+    # Find all anchor tags with href attributes
+    link_pattern = r'<a[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>'
+    matches = re.findall(link_pattern, html_content, re.IGNORECASE | re.DOTALL)
+
+    for href, anchor_text in matches:
+        # Resolve relative URLs
+        absolute_href = _resolve_url(href, base_url)
+
+        if absolute_href in seen_urls:
+            continue
+        seen_urls.add(absolute_href)
+
+        # Parse the URL
+        parsed_url = urlparse(absolute_href)
+        if not parsed_url.netloc:
+            continue  # Skip invalid URLs
+
+        # Clean anchor text
+        clean_text = _clean_anchor_text(anchor_text)
+
+        # Analyze URL components
+        finding = UrlFinding(
+            text=clean_text,
+            href=absolute_href,
+            netloc=parsed_url.netloc,
+            is_ip_literal=_is_ip_literal(parsed_url.netloc),
+            is_punycode=parsed_url.netloc.startswith("xn--"),
+            skeleton_match=None,  # TODO: implement confusables logic
+            is_shortener=_is_url_shortener(parsed_url.netloc),
+            text_href_mismatch=_has_text_href_mismatch(clean_text, parsed_url.netloc),
+            brand_match=_match_brand(parsed_url.netloc),
+            first_seen_pos=html_content.find(
+                absolute_href
+            ),  # Position of the URL itself
+            evidence=_generate_evidence(
+                clean_text,
+                absolute_href,
+                parsed_url.netloc,
+                _is_ip_literal(parsed_url.netloc),
+                parsed_url.netloc.startswith("xn--"),
+                _is_url_shortener(parsed_url.netloc),
+                _has_text_href_mismatch(clean_text, parsed_url.netloc),
+                _match_brand(parsed_url.netloc),
+            ),
+        )
+        findings.append(finding)
+
+    return findings
+
+
+def _extract_base_url(html_content: str) -> Optional[str]:
+    """Extract base URL from <base href="..."> tag."""
+    base_pattern = r'<base[^>]*href=["\']([^"\']+)["\']'
+    match = re.search(base_pattern, html_content, re.IGNORECASE)
+    return match.group(1) if match else None
+
+
+def _resolve_url(href: str, base_url: Optional[str]) -> str:
+    """Resolve relative URLs to absolute URLs."""
+    if not base_url:
+        # If href is already absolute or protocol-relative, return as-is
+        if href.startswith(("http://", "https://", "//")):
+            return href if href.startswith("//") else href
+        else:
+            # Assume http:// as default for relative URLs without base
+            return f"http://{href}"
+    else:
+        return urljoin(base_url, href)
+
+
+def _clean_anchor_text(anchor_text: str) -> str:
+    """Clean and normalize anchor text."""
+    # Remove HTML tags and extra whitespace
+    text = re.sub(r"<[^>]+>", "", anchor_text)
+    return text.strip()
+
+
+def _is_ip_literal(netloc: str) -> bool:
+    """Check if netloc is an IP literal (IPv4 or IPv6)."""
+    try:
+        # Handle IPv6 addresses in brackets
+        if netloc.startswith("[") and "]" in netloc:
+            ip_part = netloc[1 : netloc.find("]")]
+            ipaddress.IPv6Address(ip_part)
+            return True
+        else:
+            # Handle IPv4 or plain IPv6
+            ipaddress.ip_address(netloc.split(":")[0])
+            return True
+    except ValueError:
+        return False
+
+
+def _is_url_shortener(netloc: str) -> bool:
+    """Check if netloc is a known URL shortener service."""
+    shorteners = {
+        "bit.ly",
+        "t.co",
+        "tinyurl.com",
+        "goo.gl",
+        "cutt.ly",
+        "rebrand.ly",
+        "lnkd.in",
+        "ow.ly",
+        "is.gd",
+        "buff.ly",
+        "adf.ly",
+        "bl.ink",
+        "linktr.ee",
+        "tiny.cc",
+    }
+    domain = netloc.lower().split(":")[0]  # Remove port if present
+    return domain in shorteners
+
+
+def _normalize_domain(domain: str) -> str:
+    """Normalize domain for comparison (remove www. prefix, convert to lowercase)."""
+    domain = domain.lower()
+    if domain.startswith("www."):
+        domain = domain[4:]
+    return domain
+
+
+def _has_text_href_mismatch(text: str, netloc: str) -> bool:
+    """Check if anchor text looks like a URL/brand but points elsewhere."""
+    if not text or not netloc:
+        return False
+
+    # Check if text looks like a URL
+    url_like_patterns = [
+        r"https?://[^\s]+",  # http:// or https://
+        r"www\.[^\s]+",  # www.something
+        r"[a-zA-Z0-9-]+\.[a-zA-Z]{2,}",  # domain-like pattern
+    ]
+
+    text_looks_like_url = any(
+        re.search(pattern, text, re.IGNORECASE) for pattern in url_like_patterns
+    )
+
+    if text_looks_like_url:
+        # Extract domain from text if it looks like a URL
+        text_domain = re.search(
+            r"(?:https?://|www\.|)([^\s/\?#]+)", text, re.IGNORECASE
+        )
+        if text_domain:
+            normalized_text_domain = _normalize_domain(text_domain.group(1))
+            normalized_href_domain = _normalize_domain(netloc)
+            return normalized_text_domain != normalized_href_domain
+
+    return False
+
+
+def _match_brand(netloc: str) -> Optional[str]:
+    """Check if URL domain matches known brands."""
+    known_brands = {
+        "google.com": "Google",
+        "facebook.com": "Facebook",
+        "amazon.com": "Amazon",
+        "microsoft.com": "Microsoft",
+        "apple.com": "Apple",
+        "paypal.com": "PayPal",
+        "github.com": "GitHub",
+        "twitter.com": "Twitter",
+        "instagram.com": "Instagram",
+        "linkedin.com": "LinkedIn",
+        "youtube.com": "YouTube",
+    }
+
+    domain = _normalize_domain(netloc.split(":")[0])  # Remove port
+
+    # Check exact match
+    if domain in known_brands:
+        return known_brands[domain]
+
+    # Check subdomain match
+    for brand_domain, brand_name in known_brands.items():
+        if domain.endswith("." + brand_domain):
+            return brand_name
+
+    return None
+
+
+def _generate_evidence(
+    text: str,
+    href: str,
+    netloc: str,
+    is_ip: bool,
+    is_puny: bool,
+    is_shortener: bool,
+    has_mismatch: bool,
+    brand: Optional[str],
+) -> str:
+    """Generate explanation string for the URL finding."""
+    reasons = []
+
+    if is_ip:
+        reasons.append("Uses IP literal instead of domain name")
+    if is_puny:
+        reasons.append("Uses Punycode/IDN encoding")
+    if is_shortener:
+        reasons.append("Uses URL shortening service")
+    if has_mismatch:
+        reasons.append(f"Anchor text '{text}' doesn't match domain '{netloc}'")
+    if brand:
+        reasons.append(f"Domain appears legitimate ({brand})")
+
+    if reasons:
+        return "; ".join(reasons)
+    else:
+        return "Clean URL"

@@ -5,22 +5,16 @@ import os
 import base64
 from dataclasses import asdict
 from email.message import EmailMessage
-from email import policy
-from email.parser import BytesParser
 from .mime import MultiPartParser
 from .headers import HeaderNormalizer, get_date
 from .addresses import AddressUtils
 from .models import (
     Attachment,
     InlineImage,
-    MimePart,
-    HtmlMetrics,
-    TextMetrics,
     RoutingHop,
     RoutingData,
 )
 from .body_cleaner import get_cleaned_body_text, get_cleaned_body_html
-from .auth_parser import get_auth_data
 from .metrics import extract_html_metrics, extract_text_metrics
 
 
