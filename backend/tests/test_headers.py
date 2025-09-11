@@ -1,6 +1,6 @@
 import pytest
 from backend.ingestion.headers import HeaderNormalizer, get_date
-from backend.ingestion.models import SubscriptionMetadata, ListUnsubscribe
+from backend.utils.models import SubscriptionMetadata, ListUnsubscribe
 from email.message import EmailMessage
 from email import policy
 from email.parser import BytesParser

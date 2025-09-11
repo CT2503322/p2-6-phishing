@@ -3,7 +3,7 @@ import mimetypes
 from pathlib import Path
 from typing import List, Optional, Tuple
 import re
-from .models import Attachment, AttachmentFinding
+from backend.utils.models import Attachment, AttachmentFinding
 
 
 class AttachmentAnalyzer:

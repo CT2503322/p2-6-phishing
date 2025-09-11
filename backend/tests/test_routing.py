@@ -1,5 +1,5 @@
 import pytest
-from backend.ingestion.models import RoutingData, RoutingHop, RoutingVerdict
+from backend.utils.models import RoutingData, RoutingHop, RoutingVerdict
 from backend.ingestion.parse_eml import analyze_routing_verdict
 
 

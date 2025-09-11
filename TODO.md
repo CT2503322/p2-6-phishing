@@ -49,11 +49,11 @@ This document tracks the implementation status of features in the phishing detec
 
 ### URL Checks
 
-- [ ] Implement `url_checks.py` - href/text mismatch, IP literals, shorteners, punycode
-- [ ] Detect URL text/href discrepancies
-- [ ] Identify IP addresses in URLs
-- [ ] Handle URL shorteners
-- [ ] Check for punycode/IDN homograph attacks
+- [x] Implement `url_checks.py` - href/text mismatch, IP literals, shorteners, punycode
+- [x] Detect URL text/href discrepancies
+- [x] Identify IP addresses in URLs
+- [x] Handle URL shorteners
+- [x] Check for punycode/IDN homograph attacks
 
 ### Reply-To vs From Mismatch
 

@@ -1,14 +1,14 @@
 import pytest
 from backend.core.keywords import find
 from backend.core.whitelist import normalize_domain, load_whitelist, is_whitelisted
-from backend.core.score import (
+from backend.core.scoring import (
     extract_domains,
     check_keywords,
     check_whitelist,
     analyze,
     analyze_with_rules,
 )
-from backend.ingestion.models import RuleScore, Label
+from backend.utils.models import RuleScore, Label
 import os
 import tempfile
 
@@ -84,7 +84,7 @@ def test_check_keywords():
 
 def test_check_whitelist():
     """Test whitelist checking."""
-    from backend.core.score import wl as global_wl
+    from backend.core.scoring import wl as global_wl
 
     original_wl = global_wl.copy()
     global_wl.clear()
@@ -116,7 +116,7 @@ def test_analyze():
 
 def test_analyze_whitelisted():
     """Test analysis with whitelisted domain."""
-    from backend.core.score import wl as global_wl
+    from backend.core.scoring import wl as global_wl
 
     original_wl = global_wl.copy()
     global_wl.clear()

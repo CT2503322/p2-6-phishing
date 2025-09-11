@@ -9,7 +9,7 @@ hits that appear closer to the beginning of important sections.
 import re
 from typing import List, Dict
 
-from ..ingestion.models import KeywordHit
+from backend.utils.models import KeywordHit
 
 
 class PositionScorer:

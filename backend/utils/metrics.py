@@ -9,9 +9,10 @@ import re
 import ipaddress
 from urllib.parse import urlparse, urljoin
 from typing import Optional, Tuple, List
-from .models import HtmlMetrics, TextMetrics, UrlFinding
-from .body_cleaner import strip_html_tags
-from .confusables import DETECTOR
+
+from backend.core.confusables import DETECTOR
+from backend.utils.text import strip_html_tags
+from backend.utils.models import HtmlMetrics, TextMetrics, UrlFinding
 
 
 def extract_html_metrics(html_content: str, subject: str = "") -> HtmlMetrics:

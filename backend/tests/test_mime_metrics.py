@@ -7,7 +7,7 @@ from email import policy
 from email.parser import BytesParser
 from backend.ingestion.parse_eml import eml_to_parts
 from backend.ingestion.mime import MultiPartParser
-from backend.ingestion.metrics import extract_html_metrics, extract_text_metrics
+from backend.utils.metrics import extract_html_metrics, extract_text_metrics
 
 
 class TestMimeParts:

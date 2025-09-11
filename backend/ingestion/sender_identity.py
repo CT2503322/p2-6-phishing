@@ -3,9 +3,9 @@ from dataclasses import dataclass, field
 from email.message import EmailMessage
 import re
 from backend.ingestion.addresses import AddressUtils
-from backend.ingestion.auth_parser import get_auth_data
+from backend.core.auth_checks.auth_headers import get_auth_data
 from backend.ingestion.headers import HeaderNormalizer
-from backend.ingestion.confusables import DETECTOR
+from backend.core.confusables import DETECTOR
 
 
 @dataclass

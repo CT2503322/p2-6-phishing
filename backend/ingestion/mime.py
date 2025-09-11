@@ -8,7 +8,7 @@ from io import BytesIO
 from email.generator import BytesGenerator
 import hashlib
 import re
-from .models import Attachment, InlineImage, MimePart
+from backend.utils.models import Attachment, InlineImage, MimePart
 
 
 class MultiPartParser:

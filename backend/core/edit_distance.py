@@ -8,7 +8,7 @@ that rely on typosquatting or small modifications to legitimate domains.
 
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Set
-from .models import LookalikeFinding
+from backend.utils.models import LookalikeFinding
 
 
 class EditDistanceDetector:

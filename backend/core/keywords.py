@@ -1,8 +1,11 @@
 import re
 from typing import List, Dict, Tuple, Optional
 
-from .position import find_keywords_with_positions, calculate_positioned_score
-from ..ingestion.models import KeywordHit
+from backend.core.position import (
+    find_keywords_with_positions,
+    calculate_positioned_score,
+)
+from backend.utils.models import KeywordHit
 
 # Phishing-related keywords for detection
 WORDS = [

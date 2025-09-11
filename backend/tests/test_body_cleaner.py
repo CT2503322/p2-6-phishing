@@ -1,9 +1,10 @@
 import pytest
-from backend.ingestion.body_cleaner import (
-    clean_text_body,
+
+from backend.utils.text import (
     clean_html_body,
-    get_cleaned_body_text,
+    clean_text_body,
     get_cleaned_body_html,
+    get_cleaned_body_text,
     strip_html_tags,
 )
 

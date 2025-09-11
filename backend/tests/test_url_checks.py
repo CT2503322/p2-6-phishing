@@ -1,18 +1,11 @@
-"""
-Comprehensive tests for URL security checks.
-
-Tests cover detection of href/text mismatches, IP literals, URL shorteners,
-and punycode/IDN homograph attacks.
-"""
-
 import pytest
-from backend.ingestion.url_checks import (
+from backend.core.url_checks import (
     URLSecurityAnalyzer,
     extract_url_findings,
     analyze_url,
     detect_url_anomalies,
 )
-from backend.ingestion.models import UrlFinding, RuleScore
+from backend.utils.models import UrlFinding, RuleScore
 
 
 class TestURLSecurityAnalyzer:

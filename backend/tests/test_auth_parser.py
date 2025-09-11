@@ -1,5 +1,5 @@
 import pytest
-from backend.ingestion.auth_parser import (
+from backend.core.auth_checks.auth_headers import (
     parse_authentication_results,
     get_auth_data,
     _parse_spf,

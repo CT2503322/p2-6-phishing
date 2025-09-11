@@ -1,7 +1,7 @@
 import pytest
 from backend.ingestion.mime import MultiPartParser
 from backend.ingestion.parse_eml import get_message_html_with_inline_images
-from backend.ingestion.models import InlineImage
+from backend.utils.models import InlineImage
 from email.message import EmailMessage
 from email import policy
 from email.parser import BytesParser

@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from email.message import EmailMessage
 import re
-from .models import SubscriptionMetadata, ListUnsubscribe
+from backend.utils.models import SubscriptionMetadata, ListUnsubscribe
 
 
 class HeaderNormalizer:

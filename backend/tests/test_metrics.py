@@ -1,5 +1,5 @@
 import pytest
-from backend.ingestion.metrics import (
+from backend.utils.metrics import (
     extract_html_metrics,
     extract_text_metrics,
     detect_language,

@@ -6,10 +6,10 @@ import base64
 from dataclasses import asdict
 from email.message import EmailMessage
 from urllib.parse import urlparse
-from .mime import MultiPartParser
-from .headers import HeaderNormalizer, get_date
-from .addresses import AddressUtils
-from .models import (
+from backend.ingestion.mime import MultiPartParser
+from backend.ingestion.headers import HeaderNormalizer, get_date
+from backend.ingestion.addresses import AddressUtils
+from backend.utils.models import (
     Attachment,
     WhitelistHit,
     InlineImage,
@@ -17,10 +17,10 @@ from .models import (
     RoutingData,
     RoutingVerdict,
 )
-from .body_cleaner import get_cleaned_body_text, get_cleaned_body_html
-from .metrics import extract_html_metrics, extract_text_metrics
-from .attachment_analysis import AttachmentAnalyzer
-from ..core.whitelist import check_whitelist_hit, load_whitelist
+from backend.utils.text import get_cleaned_body_text, get_cleaned_body_html
+from backend.utils.metrics import extract_html_metrics, extract_text_metrics
+from backend.core.attachments import AttachmentAnalyzer
+from backend.core.whitelist import check_whitelist_hit, load_whitelist
 
 
 class EmlReader:

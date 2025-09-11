@@ -1,5 +1,5 @@
 import pytest
-from backend.ingestion.models import (
+from backend.utils.models import (
     Attachment,
     WhitelistHit,
     MimePart,

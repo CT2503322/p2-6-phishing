@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 from typing import Set, Optional
-from ..ingestion.models import WhitelistHit
+from backend.utils.models import WhitelistHit
 
 
 def normalize_domain(domain: str) -> str:

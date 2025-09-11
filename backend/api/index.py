@@ -3,8 +3,8 @@ from typing import Dict, Any
 from pathlib import Path
 from dataclasses import asdict
 
-from backend.core.score import analyze_with_rules as analyze_core
-from backend.ingestion.edit_distance import DETECTOR as EDIT_DISTANCE_DETECTOR
+from backend.core.scoring import analyze_with_rules as analyze_core
+from backend.core.edit_distance import DETECTOR as EDIT_DISTANCE_DETECTOR
 from backend.ingestion.parse_eml import (
     eml_to_parts,
     validate_email_message,
@@ -13,7 +13,7 @@ from backend.ingestion.parse_eml import (
 )
 from backend.ingestion.sender_identity import SenderIdentityAnalyzer
 from backend.ingestion.headers import HeaderNormalizer
-from backend.ingestion.auth_parser import get_auth_data, get_raw_auth_headers
+from backend.core.auth_checks.auth_headers import get_auth_data, get_raw_auth_headers
 from dataclasses import asdict
 from fastapi import UploadFile, FastAPI, File, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -184,7 +184,7 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
         result["subscription"] = asdict(subscription_metadata)
 
         # Create domains list from all content
-        from backend.core.score import extract_domains
+        from backend.core.scoring import extract_domains
 
         all_content = subject + "\n" + text_body + "\n" + html_body
         domains = list(extract_domains(all_content))
@@ -192,7 +192,7 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
 
         # Create HTML text (full extracted text)
         if html_body:
-            from backend.ingestion.body_cleaner import strip_html_tags
+            from backend.utils.text import strip_html_tags
 
             result["html_text"] = strip_html_tags(html_body)
         else:

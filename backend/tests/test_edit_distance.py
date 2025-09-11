@@ -3,8 +3,8 @@ Tests for edit-distance lookalike detection functionality.
 """
 
 import pytest
-from backend.ingestion.edit_distance import EditDistanceDetector, DETECTOR
-from backend.ingestion.models import LookalikeFinding
+from backend.core.edit_distance import EditDistanceDetector, DETECTOR
+from backend.utils.models import LookalikeFinding
 
 
 class TestEditDistanceDetector:

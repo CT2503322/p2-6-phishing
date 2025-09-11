@@ -1,6 +1,6 @@
 import pytest
-from backend.ingestion.attachment_analysis import AttachmentAnalyzer
-from backend.ingestion.models import Attachment, AttachmentFinding
+from backend.core.attachments import AttachmentAnalyzer
+from backend.utils.models import Attachment, AttachmentFinding
 
 
 class TestAttachmentAnalyzer:
