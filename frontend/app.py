@@ -66,19 +66,19 @@ def main():
             analyze_button = st.button(
                 "Analyze Email",
                 type="primary",
-                use_container_width=True,
+                width="stretch",
                 disabled=not st.session_state.get("api_status", False),
             )
 
         with col2:
-            if st.button("Clear Results", use_container_width=True):
+            if st.button("Clear Results", width="stretch"):
                 st.session_state.analysis_result = None
                 st.rerun()
 
         with col3:
             if st.button(
                 "Download Report",
-                use_container_width=True,
+                width="stretch",
                 disabled=st.session_state.analysis_result is None,
             ):
                 # Placeholder for download functionality

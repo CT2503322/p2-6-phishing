@@ -1434,7 +1434,7 @@ def render_keyword_analysis_results(keyword_analysis: Dict[str, Any]):
                 df = pd.DataFrame(table_data[:10])
                 st.dataframe(
                     df,
-                    use_container_width=True,
+                    width="stretch",
                     column_config={
                         "Keyword": st.column_config.TextColumn(
                             "Keyword", width="medium"
@@ -1987,7 +1987,7 @@ def render_rule_breakdown(scored_analysis: Dict[str, Any]):
             df = pd.DataFrame(table_data)
             st.dataframe(
                 df,
-                use_container_width=True,
+                width="stretch",
                 column_config={
                     "#": st.column_config.NumberColumn("#", width="small"),
                     "Rule": st.column_config.TextColumn("Rule", width="large"),
