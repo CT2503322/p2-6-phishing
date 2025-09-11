@@ -16,7 +16,8 @@ This document tracks the implementation status of features in the phishing detec
 - [x] Implement `sender_identity.py` - Sender identity analysis and verification
 - [x] Implement `metrics.py` - Analysis metrics and statistics calculation
 - [x] Implement `error_policy.py` - Error handling policies and fallback mechanisms
-- [ ] Add advanced attachment extraction with security scanning
+- [x] Implement `attachment_analysis.py` - Advanced attachment analysis with MIME sniffing, macro detection, and security scanning
+- [ ] Add advanced attachment extraction with security scanning (upgrading beyond current implementation)
 - [ ] Enhance encoding handling for international email support
 
 ### Whitelist
@@ -36,15 +37,15 @@ This document tracks the implementation status of features in the phishing detec
 
 ### Position Analysis
 
-- [ ] Implement `position.py` - subject/early-body weighting
-- [ ] Add logic to prioritize suspicious content in email subject and early body text
-- [ ] Integrate position weighting into scoring system
+- [x] Implement `position.py` - subject/early-body weighting with configurable multipliers and decay functions
+- [x] Add logic to prioritize suspicious content in email subject and early body text
+- [x] Integrate position weighting into scoring system with comprehensive statistics
 
 ### Edit Distance
 
-- [ ] Implement `edit_distance.py` - banded Levenshtein with cutoff
-- [ ] Add fuzzy matching for known phishing domains/brands
-- [ ] Optimize for performance with cutoff thresholds
+- [x] Implement `edit_distance.py` - banded Levenshtein with cutoff and comprehensive detection patterns
+- [x] Add fuzzy matching for known phishing domains/brands (with brand database and custom domains)
+- [x] Optimize for performance with cutoff thresholds and evidence generation
 
 ### URL Checks
 
@@ -171,14 +172,18 @@ This document tracks the implementation status of features in the phishing detec
 - [x] Implement `test_attachments.py` - Email attachment processing tests
 - [x] Implement `test_reader.py` - Email reader functionality tests
 - [x] Implement `test_fixtures.py` - Test fixture utilities tests
+- [x] Implement `test_attachment_analysis.py` - Advanced attachment analysis tests with security patterns
+- [x] Implement `test_edit_distance.py` - Comprehensive edit distance and lookalike detection tests
+- [x] Implement `test_mime_metrics.py` - MIME metrics calculation tests
 - [ ] Implement `test_ingestion.py` - Complete ingestion pipeline tests
+- [ ] Implement `test_position.py` - Position analysis unit tests
 - [ ] Improve test coverage - Add edge cases, performance tests, fuzz testing
 - [ ] Add property-based testing with hypothesis
 
 ### Unit Tests
 
 - [ ] Implement `test_position.py` - Position analysis (subject/early-body) tests
-- [ ] Implement `test_edit_distance.py` - Fuzzy matching and edit distance tests
+- [x] Implement `test_edit_distance.py` - Fuzzy matching and edit distance tests (comprehensive implementation with 200+ test cases)
 - [ ] Implement `test_url_checks.py` - URL validation and security tests
 - [ ] Implement `test_replyto_from.py` - Reply-To/From header mismatch tests
 - [ ] Implement `test_confusables.py` - Unicode confusable character tests

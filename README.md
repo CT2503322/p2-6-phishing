@@ -11,7 +11,8 @@ A full-stack web application for detecting phishing emails using machine learnin
 - **Comprehensive Metrics**: Detailed analysis metrics and scoring algorithms
 - **REST API**: FastAPI backend with `/health` and `/analyze/eml` endpoints
 - **Modern Frontend**: Streamlit web application with multiple UI components for easy analysis
-- **Automated Testing**: Extensive test suite with pytest, fixtures, and integration testing
+- **Advanced Detection Features**: Position-aware analysis, edit distance lookalike detection, and comprehensive attachment security scanning
+- **Automated Testing**: Extensive test suite with 200+ test cases, pytest, fixtures, and integration testing
 
 See [TODO.md](TODO.md) for detailed development roadmap.
 
@@ -45,7 +46,11 @@ p2-6-phishing/
 │   │   ├── mime.py        # MIME type handling
 │   │   ├── models.py      # Data models for email processing
 │   │   ├── parse_eml.py   # EML file parsing
-│   │   └── sender_identity.py # Sender identity analysis
+│   │   ├── sender_identity.py # Sender identity analysis
+│   │   ├── attachment_analysis.py # Advanced attachment analysis with security scanning
+│   │   ├── position.py    # Position-based keyword weighting (NEW)
+│   │   ├── edit_distance.py # Fuzzy domain matching and lookalike detection (NEW)
+│   │   └── confusable.py  # Unicode confusable character analysis
 │   ├── tests/             # Comprehensive test suite
 │   │   ├── __init__.py
 │   │   ├── fixtures/      # Test fixture files
