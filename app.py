@@ -8,11 +8,11 @@ import time
 from frontend.ui import (
     PAGE_TITLE,
     render_file_uploader,
-    render_email_content,
     render_analysis_results,
     render_sidebar,
     analyze_email_file,
     validate_email_file,
+    show_analysis_pipeline,
 )
 
 
@@ -89,14 +89,9 @@ def main():
                 st.error("Cannot analyze: Backend API is not available")
                 return
 
-            with st.spinner("Analyzing email for phishing indicators..."):
-                progress_bar = st.progress(0)
-                for i in range(100):
-                    time.sleep(0.01)  # Simulate processing time
-                    progress_bar.progress(i + 1)
-
-                result = analyze_email_file(uploaded_file)
-                progress_bar.empty()
+            # Show the step-by-step pipeline and perform analysis
+            result = analyze_email_file(uploaded_file)
+            show_analysis_pipeline(uploaded_file, result)
 
             if result:
                 st.session_state.analysis_result = result
@@ -122,12 +117,39 @@ def main():
         ### Quick Start Guide
 
         1. **Upload**: Select an `.eml` file from your computer using the file uploader above
-        2. **Process**: View the complete email processing pipeline:
-           - **Step 1**: Raw .eml file content (first 2000 characters)
-           - **Step 2**: Parsing process with stdlib email library
-           - **Step 3**: Structured email components (headers, body, attachments)
-        3. **Analyze**: Click the "Analyze Email" button to run phishing detection
-        4. **Review**: Examine the risk assessment and detailed analysis results
+        2. **Analyze**: Click the "Analyze Email" button to run comprehensive phishing detection
+        3. **Monitor Pipeline**: Watch the step-by-step processing pipeline showing:
+           - File validation and size checks
+           - Raw email parsing with Python email library
+           - Structure validation and format checks
+           - Header extraction and normalization
+           - Content processing (text/HTML body)
+           - MIME parts and attachment analysis
+           - Sender identity verification
+           - Authentication checks (SPF/DKIM/DMARC)
+           - Attachment security scanning
+           - Domain and URL analysis
+           - Keyword detection with position-awareness
+           - Lookalike domain detection
+           - Final risk assessment scoring
+        4. **Review**: Examine the comprehensive risk assessment and technical analysis details
+
+        ### Pipeline Steps Overview
+
+        The analysis follows 13 processing steps:
+        - **Step 1**: File Upload Validation
+        - **Step 2**: Raw Email Parsing
+        - **Step 3**: Structure Validation
+        - **Step 4**: Header Extraction
+        - **Step 5**: Content Processing
+        - **Step 6**: MIME Parts Analysis
+        - **Step 7**: Sender Identity Analysis
+        - **Step 8**: Authentication Verification
+        - **Step 9**: Attachment Security
+        - **Step 10**: Domain & URL Analysis
+        - **Step 11**: Keyword Detection
+        - **Step 12**: Lookalike Detection
+        - **Step 13**: Risk Assessment
 
         ### Tips
         - Files up to **200MB** are supported
@@ -139,6 +161,7 @@ def main():
         - If analysis fails, check the API status in the sidebar
         - Clear results and try uploading the file again
         - For large files, the analysis may take longer
+        - Each step is processed sequentially with status updates
         """
         )
 

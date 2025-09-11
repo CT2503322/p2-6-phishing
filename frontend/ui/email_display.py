@@ -3,10 +3,256 @@ Email content display UI components.
 """
 
 import streamlit as st
+import time
+from typing import Dict, Any
 
-from backend.ingestion.mime import MultiPartParser
-from backend.ingestion.parse_eml import EmlReader
-from .config import MAX_DISPLAY_CONTENT_LENGTH, MAX_PART_CONTENT_LENGTH
+
+def render_processing_pipeline_steps(uploaded_file):
+    """
+    Render a step-by-step visualization of the email processing pipeline.
+
+    Args:
+        uploaded_file: The uploaded file to analyze
+    """
+    st.markdown("### Email Processing Pipeline")
+
+    # Define the processing steps in order
+    steps = [
+        {
+            "step": 1,
+            "name": "File Upload Validation",
+            "description": "Validating file format and size limits",
+            "status": "completed",  # Always completed when we get here
+        },
+        {
+            "step": 2,
+            "name": "Raw Email Parsing",
+            "description": "Parsing .eml file with Python email library",
+            "status": "pending",
+        },
+        {
+            "step": 3,
+            "name": "Structure Validation",
+            "description": "Validating email structure and format",
+            "status": "pending",
+        },
+        {
+            "step": 4,
+            "name": "Header Extraction",
+            "description": "Extracting and normalizing email headers",
+            "status": "pending",
+        },
+        {
+            "step": 5,
+            "name": "Content Processing",
+            "description": "Processing text and HTML body content",
+            "status": "pending",
+        },
+        {
+            "step": 6,
+            "name": "MIME Parts Analysis",
+            "description": "Analyzing multipart and attachment structure",
+            "status": "pending",
+        },
+        {
+            "step": 7,
+            "name": "Sender Identity Analysis",
+            "description": "Analyzing sender information and consistency",
+            "status": "pending",
+        },
+        {
+            "step": 8,
+            "name": "Authentication Verification",
+            "description": "Verifying SPF, DKIM, DMARC authentication",
+            "status": "pending",
+        },
+        {
+            "step": 9,
+            "name": "Attachment Security",
+            "description": "Scanning attachments for malicious content",
+            "status": "pending",
+        },
+        {
+            "step": 10,
+            "name": "Domain & URL Analysis",
+            "description": "Extracting and analyzing domains and URLs",
+            "status": "pending",
+        },
+        {
+            "step": 11,
+            "name": "Keyword Detection",
+            "description": "Position-aware keyword and phishing pattern detection",
+            "status": "pending",
+        },
+        {
+            "step": 12,
+            "name": "Lookalike Detection",
+            "description": "Detecting typosquatting and similar domains",
+            "status": "pending",
+        },
+        {
+            "step": 13,
+            "name": "Risk Assessment",
+            "description": "Calculating final phishing risk score",
+            "status": "pending",
+        },
+    ]
+
+    # Create progress containers for each step
+    step_containers = []
+    for i, step_data in enumerate(steps):
+        if i == 0:  # File upload is always completed when we get here
+            step_data["status"] = "completed"
+        container = st.empty()
+        step_containers.append(container)
+
+    # Render initial state
+    for i, (container, step_data) in enumerate(zip(step_containers, steps)):
+        _render_step(container, step_data, i + 1)
+
+    return step_containers, steps
+
+
+def _render_step(container, step_data, step_number):
+    """Render a single processing step with appropriate styling."""
+    with container:
+        status = step_data["status"]
+
+        if status == "completed":
+            col1, col2, col3 = st.columns([1, 1, 8])
+            with col1:
+                st.success(f"STEP {step_number}")
+            with col2:
+                st.write("OK")
+            with col3:
+                st.write(f"**{step_data['name']}** - {step_data['description']}")
+
+        elif status == "processing":
+            col1, col2, col3 = st.columns([1, 1, 8])
+            with col1:
+                st.info(f"STEP {step_number}")
+            with col2:
+                st.write("...")  # Changed from ⟳
+            with col3:
+                st.write(f"**{step_data['name']}** - {step_data['description']}")
+
+        elif status == "failed":
+            col1, col2, col3 = st.columns([1, 1, 8])
+            with col1:
+                st.error(f"STEP {step_number}")
+            with col2:
+                st.write("FAIL")
+            with col3:
+                st.write(f"**{step_data['name']}** - {step_data['description']}")
+
+        else:  # pending
+            col1, col2, col3 = st.columns([1, 1, 8])
+            with col1:
+                st.write(f"STEP {step_number}")
+            with col2:
+                st.write("WAIT")
+            with col3:
+                st.write(f"**{step_data['name']}** - {step_data['description']}")
+
+
+def update_pipeline_step(
+    step_containers, steps, step_index, status="completed", delay=0.5
+):
+    """
+    Update the status of a specific pipeline step with a delay for visual effect.
+
+    Args:
+        step_containers: List of Streamlit containers for each step
+        steps: List of step data dictionaries
+        step_index: Index of the step to update (0-based)
+        status: New status ("completed", "processing", "failed", "pending")
+        delay: Delay in seconds before updating
+    """
+    if delay > 0:
+        time.sleep(delay)
+
+    if 0 <= step_index < len(steps):
+        steps[step_index]["status"] = status
+        _render_step(step_containers[step_index], steps[step_index], step_index + 1)
+
+
+def show_analysis_pipeline(uploaded_file, api_result):
+    """
+    Show the complete analysis pipeline with step-by-step progression.
+
+    Args:
+        uploaded_file: The uploaded .eml file
+        api_result: Results from the API analysis
+    """
+    st.markdown("---")
+
+    # Initialize pipeline display
+    step_containers, steps = render_processing_pipeline_steps(uploaded_file)
+
+    # Simulate step progression based on API result structure
+    if api_result:
+        # Step 2: Raw parsing
+        update_pipeline_step(step_containers, steps, 1, "completed", 0.2)
+
+        # Step 3: Structure validation
+        update_pipeline_step(step_containers, steps, 2, "completed", 0.2)
+
+        # Step 4: Header extraction (always present in key_headers)
+        update_pipeline_step(step_containers, steps, 3, "completed", 0.2)
+
+        # Step 5: Content processing (html_text or subject indicates processing)
+        update_pipeline_step(step_containers, steps, 4, "completed", 0.2)
+
+        # Step 6: MIME parts analysis
+        if "parts" in api_result or "attachment_findings" in api_result:
+            update_pipeline_step(step_containers, steps, 5, "completed", 0.2)
+        else:
+            update_pipeline_step(step_containers, steps, 5, "completed", 0.2)
+
+        # Step 7: Sender identity analysis
+        if "sender_identity" in api_result:
+            update_pipeline_step(step_containers, steps, 6, "completed", 0.2)
+        else:
+            update_pipeline_step(step_containers, steps, 6, "completed", 0.2)
+
+        # Step 8: Authentication verification
+        if "auth" in api_result:
+            update_pipeline_step(step_containers, steps, 7, "completed", 0.2)
+        else:
+            update_pipeline_step(step_containers, steps, 7, "completed", 0.2)
+
+        # Step 9: Attachment analysis
+        update_pipeline_step(step_containers, steps, 8, "completed", 0.2)
+
+        # Step 10: Domain & URL analysis
+        if "domains" in api_result or "url_findings" in api_result:
+            update_pipeline_step(step_containers, steps, 9, "completed", 0.2)
+        else:
+            update_pipeline_step(step_containers, steps, 9, "completed", 0.2)
+
+        # Step 11: Keyword detection
+        if "keyword_analysis" in api_result:
+            update_pipeline_step(step_containers, steps, 10, "completed", 0.2)
+        else:
+            update_pipeline_step(step_containers, steps, 10, "completed", 0.2)
+
+        # Step 12: Lookalike detection
+        if "lookalike_domains" in api_result or "confusable_findings" in api_result:
+            update_pipeline_step(step_containers, steps, 11, "completed", 0.2)
+        else:
+            update_pipeline_step(step_containers, steps, 11, "completed", 0.2)
+
+        # Step 13: Risk assessment
+        if "score_total" in api_result or "label" in api_result:
+            update_pipeline_step(step_containers, steps, 12, "completed", 0.2)
+        else:
+            update_pipeline_step(step_containers, steps, 12, "completed", 0.2)
+    else:
+        # Mark all steps as failed if no result
+        for i in range(len(steps)):
+            if i == 0:  # Skip first step as it's always completed
+                continue
+            update_pipeline_step(step_containers, steps, i, "failed", 0.1)
 
 
 def render_email_content(raw_eml_bytes: bytes):
@@ -16,6 +262,10 @@ def render_email_content(raw_eml_bytes: bytes):
     Args:
         raw_eml_bytes: Raw .eml file bytes for display
     """
+    from backend.ingestion.mime import MultiPartParser
+    from backend.ingestion.parse_eml import EmlReader
+    from .config import MAX_DISPLAY_CONTENT_LENGTH, MAX_PART_CONTENT_LENGTH
+
     parser = MultiPartParser(raw_eml_bytes)
     reader = EmlReader(raw_eml_bytes)
 

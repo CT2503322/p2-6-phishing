@@ -20,23 +20,23 @@ def render_analysis_results(result: Dict[str, Any]):
         col1, col2, col3 = st.columns([2, 1, 1])
 
         with col1:
-            st.header("🎯 Analysis Result")
+            st.header("Analysis Result")
 
         with col2:
             score = result["score_total"]
             if score >= result.get("threshold_used", 3.2):
-                st.metric("Risk Score", f"{score:.2f}", "⚠️ HIGH")
+                st.metric("Risk Score", f"{score:.2f}", "HIGH")
             elif score >= (result.get("threshold_used", 3.2) * 0.5):
-                st.metric("Risk Score", f"{score:.2f}", "⚠️ MEDIUM")
+                st.metric("Risk Score", f"{score:.2f}", "MEDIUM")
             else:
-                st.metric("Risk Score", f"{score:.2f}", "✅ LOW")
+                st.metric("Risk Score", f"{score:.2f}", "LOW")
 
         with col3:
             label = result["label"]
             if label == "PHISHING":
-                st.error("🚨 PHISHING")
+                st.error("PHISHING")
             else:
-                st.success("✅ SAFE")
+                st.success("SAFE")
 
         st.markdown("---")
 
@@ -661,7 +661,7 @@ def render_routing_results(
             # HELO IP mismatch info
             helo_ip_mismatch = routing_verdict.get("helo_ip_mismatch", False)
             if helo_ip_mismatch:
-                st.markdown("**⚠️ HELO Mismatch:**")
+                st.markdown("**HELO Mismatch:**")
                 st.error("HELO hostname/IP mismatch detected")
 
             # Evidence
@@ -711,9 +711,9 @@ def render_routing_results(
                 if routing_verdict.get("helo_domain"):
                     summary_items.append("HELO/EHLO information extracted")
                 if routing_verdict.get("helo_ip_mismatch"):
-                    summary_items.append("⚠️ HELO hostname/IP mismatch found")
+                    summary_items.append("HELO hostname/IP mismatch found")
                 if routing_verdict.get("suspicious_hop"):
-                    summary_items.append("⚠️ Suspicious routing patterns detected")
+                    summary_items.append("Suspicious routing patterns detected")
 
             if summary_items:
                 for item in summary_items:
@@ -1258,19 +1258,19 @@ def render_lookalike_findings_results(lookalike_findings: list):
 
                 # Pattern detection
                 if "Single character difference" in evidence:
-                    st.write("🔤 Single Char Diff")
+                    st.write("Single Char Diff")
 
                 if "Possible character swap" in evidence:
-                    st.write("🔄 Char Swap")
+                    st.write("Char Swap")
 
                 if "Possible missing character" in evidence:
-                    st.write("➖ Missing Char")
+                    st.write("Missing Char")
 
                 if "Possible extra character" in evidence:
-                    st.write("➕ Extra Char")
+                    st.write("Extra Char")
 
                 if "Possible character substitution" in evidence:
-                    st.write("🔄 Substitution")
+                    st.write("Substitution")
 
                 # Similarity score if available
                 if not within_cutoff:
@@ -1341,7 +1341,7 @@ def render_lookalike_findings_results(lookalike_findings: list):
         ]
         if high_risk_findings:
             summary_items.append(
-                "⚠️ **CRITICAL RISK:** Single-character brand impersonation detected"
+                "**CRITICAL RISK:** Single-character brand impersonation detected"
             )
 
         for item in summary_items:
@@ -1370,7 +1370,7 @@ def render_keyword_analysis_results(keyword_analysis: Dict[str, Any]):
     if not keyword_analysis:
         return
 
-    with st.expander("🔍 Advanced Keyword Analysis (Position-Aware)", expanded=True):
+    with st.expander("Advanced Keyword Analysis (Position-Aware)", expanded=True):
         st.markdown("**Position-Aware Keyword Detection**")
         st.markdown(
             "Keywords are weighted based on their position in the email to better assess phishing risk:"
@@ -1657,38 +1657,36 @@ def render_attachment_findings_results(attachment_findings: list):
 
                 if is_macro_enabled:
                     security_flags.append(
-                        "⚠️ **Macros Detected** - Potential VBA/Office macro content"
+                        "**Macros Detected** - Potential VBA/Office macro content"
                     )
 
                 if is_dangerous_type:
                     security_flags.append(
-                        f"⚠️ **Dangerous Type** - {ext_primary} files should not be sent via email"
+                        f"**Dangerous Type** - {ext_primary} files should not be sent via email"
                     )
 
                 if double_ext:
                     security_flags.append(
-                        "⚠️ **Double Extension** - Filename has multiple extensions (possible obfuscation)"
+                        "**Double Extension** - Filename has multiple extensions (possible obfuscation)"
                     )
 
                 if is_archive:
-                    security_flags.append(
-                        "📦 **Archive File** - Contains multiple files"
-                    )
+                    security_flags.append("**Archive File** - Contains multiple files")
                     if archive_contains_dangerous is True:
                         security_flags.append(
-                            "🚨 **DANGEROUS CONTENT** - Archive contains executable or malicious files"
+                            "**DANGEROUS CONTENT** - Archive contains executable or malicious files"
                         )
                     elif archive_contains_dangerous is False:
                         security_flags.append(
-                            "✅ **Archive Safe** - No dangerous files detected"
+                            "**Archive Safe** - No dangerous files detected"
                         )
                     else:
                         security_flags.append(
-                            "❓ **Archive Not Scanned** - Content inspection unavailable"
+                            "**Archive Not Scanned** - Content inspection unavailable"
                         )
 
                 if not security_flags:
-                    security_flags.append("✅ **Clean** - No obvious security concerns")
+                    security_flags.append("**Clean** - No obvious security concerns")
 
                 for flag in security_flags:
                     st.write(flag)
@@ -1736,10 +1734,10 @@ def render_attachment_findings_results(attachment_findings: list):
 
         if security_concerns:
             summary_items.append(
-                "⚠️ **SECURITY CONCERNS:** " + ", ".join(security_concerns)
+                "**SECURITY CONCERNS:** " + ", ".join(security_concerns)
             )
         else:
-            summary_items.append("✅ **No security concerns detected**")
+            summary_items.append("**No security concerns detected**")
 
         # Archive inspection status
         archives_inspected = sum(1 for f in attachment_findings if f.get("is_archive"))
@@ -1917,7 +1915,7 @@ def render_rule_breakdown(scored_analysis: Dict[str, Any]):
     if not scored_analysis:
         return
 
-    with st.expander("⚖️ Rule-by-Rule Scoring Breakdown", expanded=True):
+    with st.expander("Rule-by-Rule Scoring Breakdown", expanded=True):
         st.markdown("**Detailed Rule Analysis**")
         st.markdown(
             "Each security rule contributes to the overall phishing risk score:"
@@ -2011,7 +2009,7 @@ def render_rule_breakdown(scored_analysis: Dict[str, Any]):
 
             if high_impact_rules:
                 st.markdown("---")
-                st.markdown("**⚠️ Top Risk Factors**")
+                st.markdown("**Top Risk Factors**")
 
                 for i, rule in enumerate(
                     sorted(

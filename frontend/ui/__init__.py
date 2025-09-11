@@ -6,7 +6,7 @@ from .config import *
 from .api_client import *
 from .file_validator import *
 from .file_uploader import *
-from .email_display import *
+from .email_display import render_email_content, show_analysis_pipeline
 from .analysis_results import *
 from .sidebar import *
 
