@@ -8,3 +8,13 @@ twitter.com
 linkedin.com
 youtube.com
 instagram.com
+*.googleusercontent.com
+*.github.io
+*.azurewebsites.net
+*.herokuapp.com
+*.appspot.com
+*.firebaseapp.com
+mail.*
+*.office365.com
+*.sharepoint.com
+*.onedrive.com

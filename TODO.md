@@ -23,7 +23,7 @@ This document tracks the implementation status of features in the phishing detec
 ### Whitelist
 
 - [x] Implement `whitelist.py` - Basic O(1) domain membership with simple normalization
-- [ ] Improve `whitelist.py` - Add subdomain support, wildcard matching, better domain validation
+- [x] Improve `whitelist.py` - Add subdomain support, wildcard matching, better domain validation
 
 ### Keywords
 

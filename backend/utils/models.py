@@ -167,11 +167,20 @@ class AttachmentFinding:
 @dataclass
 class WhitelistHit:
     matched_domain: str
-    scope: str  # 'exact' | 'apex' | 'subdomain'
+    scope: str  # 'exact' | 'apex' | 'subdomain' | 'wildcard-subdomain' | 'wildcard-apex' | 'wildcard-tld' | 'wildcard-pattern'
     reason: str
 
     def __post_init__(self):
-        if self.scope not in {"exact", "apex", "subdomain"}:
+        valid_scopes = {
+            "exact",
+            "apex",
+            "subdomain",
+            "wildcard-subdomain",
+            "wildcard-apex",
+            "wildcard-tld",
+            "wildcard-pattern",
+        }
+        if self.scope not in valid_scopes:
             raise ValueError(f"Invalid scope: {self.scope}")
 
 

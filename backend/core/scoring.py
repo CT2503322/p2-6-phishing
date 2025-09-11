@@ -1,7 +1,7 @@
 from typing import Dict, Any, List
 from backend.core.keywords import analyze_keywords
 from backend.core.position import calculate_positioned_score
-from backend.core.whitelist import load_whitelist, is_whitelisted
+from backend.core.whitelist import load_whitelist, is_whitelisted, check_whitelist_hit
 from urllib.parse import urlparse
 import re
 from backend.utils.text import strip_html_tags
@@ -59,9 +59,23 @@ def check_keywords(subject: str, body: str) -> Dict[str, Any]:
 
 def check_whitelist(subject: str, body: str, html: str) -> Dict[str, Any]:
     domains = extract_domains(subject + "\n" + body + "\n" + html)
-    whitelisted = any(is_whitelisted(d, wl) for d in domains)
+
+    # Use enhanced whitelist checking that provides detailed WhitelistHit information
+    all_whitelist_hits = []
+    whitelisted_domains = []
+
+    for domain in domains:
+        hits = check_whitelist_hit(domain, wl, reason="content-analysis")
+        if hits:
+            all_whitelist_hits.extend(hits)
+            whitelisted_domains.append(domain)
+
+    whitelisted = len(whitelisted_domains) > 0
+
     return {
         "whitelisted": whitelisted,
+        "whitelist_hits": all_whitelist_hits,
+        "whitelisted_domains": whitelisted_domains,
         "reasons": ["WHITELISTED"] if whitelisted else [],
     }
 
@@ -105,7 +119,7 @@ def analyze(
     kw_res = check_keywords(subject, body)
     wl_res = check_whitelist(subject, body, html)
 
-    # Extract domains from all content (removed since this is now handled at API level)
+    # Extract domains from all content
     all_content = subject + "\n" + body + "\n" + html
     domains = extract_domains(all_content)
 
@@ -118,9 +132,6 @@ def analyze(
         reasons.append(f"HIGH_KEYWORD_SCORE:{keyword_score:.1f}")
     elif keyword_score >= 1.5:
         reasons.append(f"MEDIUM_KEYWORD_SCORE:{keyword_score:.1f}")
-
-    # Get whitelist information for domains (for frontend display)
-    whitelisted_domains = [d for d in domains if is_whitelisted(d, wl)]
 
     # Calculate confusable score boost
     confusable_boost = 0.0
@@ -157,7 +168,10 @@ def analyze(
         "keyword_score": keyword_score,
         "confusable_boost": confusable_boost,
         "final_score": final_score,
-        "whitelisted_domains": whitelisted_domains,
+        "whitelist_hits": wl_res[
+            "whitelist_hits"
+        ],  # Include detailed whitelist hit information
+        "whitelisted_domains": wl_res["whitelisted_domains"],
         "meta": {
             "html_preview": html_preview,
             "html_text": html_text,
