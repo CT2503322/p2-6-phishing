@@ -146,6 +146,10 @@ def analyze(
     # Calculate final score
     final_score = keyword_score + confusable_boost
 
+    # Generate html preview and text
+    html_text = strip_html_tags(html) if html else ""
+    html_preview = html_text[:500] + "..." if len(html_text) > 500 else html_text
+
     return {
         "reasons": reasons,
         "keywords": kw_res["simplified_keywords"],
@@ -154,6 +158,13 @@ def analyze(
         "confusable_boost": confusable_boost,
         "final_score": final_score,
         "whitelisted_domains": whitelisted_domains,
+        "meta": {
+            "html_preview": html_preview,
+            "html_text": html_text,
+            "keyword_hits": kw_res["meta"]["keyword_hits"],
+            "term_stats": kw_res["meta"]["term_stats"],
+            "total_score": keyword_score,
+        },
     }
 
 

@@ -1,5 +1,5 @@
 from typing import Dict, List, Optional, Tuple, Any
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from email.message import EmailMessage
 import re
 from backend.ingestion.addresses import AddressUtils
@@ -40,6 +40,9 @@ class SenderIdentity:
     from_confusable_finding: Optional[Any] = None  # ConfusableFinding for from_domain
     reply_to_confusable_finding: Optional[Any] = None
     return_path_confusable_finding: Optional[Any] = None
+
+    # Authentication results
+    authentication_results: Dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self):
         if self.esp_indicators is None:

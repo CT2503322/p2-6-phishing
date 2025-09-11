@@ -181,14 +181,6 @@ class AttachmentAnalyzer:
             if mime_type:
                 return mime_type
 
-            # Try python-magic if available
-            try:
-                import magic
-
-                return magic.from_buffer(content, mime=True)
-            except ImportError:
-                pass
-
             # Basic content-based detection
             if content.startswith(b"PK\x03\x04"):  # ZIP file signature
                 return "application/zip"

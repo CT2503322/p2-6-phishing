@@ -253,6 +253,8 @@ def eml_to_parts(msg: EmailMessage) -> Dict[str, Any]:
 
     return {
         "subject": subject,
+        "body": text,  # Alias for text_body for backward compatibility
+        "html": html,  # Alias for html_body for backward compatibility
         "text_body": text,  # Plain text body for keyword analysis
         "html_body": html,  # HTML body for completeness
         "mime_parts": [asdict(part) for part in mime_parts],
@@ -263,6 +265,7 @@ def eml_to_parts(msg: EmailMessage) -> Dict[str, Any]:
         "routing_data": asdict(routing_data),
         "routing_verdict": asdict(routing_verdict),
         "whitelist_hit": [asdict(hit) for hit in whitelist_hit],
+        "headers": header_normalizer.get_all_headers(),  # Extract headers
     }
 
 
