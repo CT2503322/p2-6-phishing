@@ -134,6 +134,13 @@ def main():
            - Final risk assessment scoring
         4. **Review**: Examine the comprehensive risk assessment and technical analysis details
 
+        ### How to download .eml files:
+        - From Gmail: Open email > Click three dots > "Download message"
+        - From Outlook: Open email > File > Save As > Select "Outlook Message Format - Unicode (*.eml)
+        - From Yahoo Mail: Open email > Click on the "More" icon (three dots) > Select "View Raw Message" > Copy and paste the content into a text file and save with .eml extension
+        - From Apple Mail: Open email > File > Save As > Choose "Raw Message Source" and save with .eml extension
+        - From Thunderbird: Open email > File > Save As > File > Choose location and save with .eml extension
+
         ### Pipeline Steps Overview
 
         The analysis follows 13 processing steps:
