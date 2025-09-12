@@ -1,0 +1,102 @@
+{
+  "keywords": {
+    "urgent": {
+      "weight": 1.5,
+      "variants": ["urgent", "urgently", "time-sensitive"],
+      "context": ["action"]
+    },
+    "action required": {
+      "weight": 2.0,
+      "variants": ["action required", "take action", "immediate action"],
+      "context": []
+    },
+    "verify": {
+      "weight": 1.2,
+      "variants": ["verify", "verification", "confirm"],
+      "context": ["account", "identity"]
+    },
+    "password": {
+      "weight": 2.5,
+      "variants": ["password", "passwd", "login credentials"],
+      "context": []
+    },
+    "account": {
+      "weight": 1.3,
+      "variants": ["account", "user account", "your account"],
+      "context": []
+    },
+    "suspended": {
+      "weight": 1.8,
+      "variants": ["suspended", "temporarily suspended", "account suspended"],
+      "context": []
+    },
+    "unusual activity": {
+      "weight": 1.7,
+      "variants": [
+        "unusual activity",
+        "suspicious activity",
+        "unauthorized activity"
+      ],
+      "context": []
+    },
+    "invoice": {
+      "weight": 1.0,
+      "variants": ["invoice", "billing", "statement"],
+      "context": ["payment", "overdue"]
+    },
+    "payment": {
+      "weight": 1.0,
+      "variants": ["payment", "pay", "billing"],
+      "context": []
+    },
+    "security alert": {
+      "weight": 1.8,
+      "variants": [
+        "security alert",
+        "security warning",
+        "security notification"
+      ],
+      "context": []
+    },
+    "click here": {
+      "weight": 2.0,
+      "variants": ["click here", "click this", "click now"],
+      "context": []
+    },
+    "confidential": {
+      "weight": 1.2,
+      "variants": ["confidential", "classified", "sensitive"],
+      "context": []
+    },
+    "financial": {
+      "weight": 1.0,
+      "variants": ["financial", "bank", "money"],
+      "context": []
+    },
+    "login": {
+      "weight": 1.5,
+      "variants": ["login", "log in", "sign in"],
+      "context": []
+    }
+  },
+  "negation_words": [
+    "not",
+    "no",
+    "never",
+    "don't",
+    "doesn't",
+    "isn't",
+    "aren't",
+    "won't",
+    "can't",
+    "shouldn't",
+    "wouldn't",
+    "legitimate",
+    "audited",
+    "verified",
+    "official",
+    "authentic",
+    "legitimate"
+  ],
+  "boosting_multiplier": 1.5
+}

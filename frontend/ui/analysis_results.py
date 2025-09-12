@@ -4,6 +4,7 @@ Analysis results UI components.
 
 import streamlit as st
 from typing import Dict, Any
+from backend.core.keywords import keyword_config
 
 
 def render_analysis_results(result: Dict[str, Any]):
@@ -39,6 +40,17 @@ def render_analysis_results(result: Dict[str, Any]):
                 st.success("SAFE")
 
         st.markdown("---")
+
+        # Enhanced Analysis Technology Note
+        if "raw_context_aware_analysis" in result:
+            st.info(
+                """
+            **Advanced Analysis Available**: This analysis includes context-aware keyword detection,
+            which analyzes keyword proximity, negation patterns, and contextual relationships.
+            View details in the "Advanced Keyword Analysis" section.
+            """
+            )
+            st.markdown("---")
 
     # Rule-by-rule breakdown
     if "scored_analysis" in result:
@@ -122,6 +134,10 @@ def render_analysis_results(result: Dict[str, Any]):
     # Detailed Keyword Analysis
     if "keyword_analysis" in result:
         render_keyword_analysis_results(result["keyword_analysis"])
+
+    # Context-Aware Keyword Analysis (Advanced)
+    if "raw_context_aware_analysis" in result:
+        render_context_aware_keyword_analysis(result["raw_context_aware_analysis"])
 
     # Content Analysis Summary
     if "html_text" in result or "domains" in result:
@@ -1901,6 +1917,265 @@ def render_whitelist_hit_results(whitelist_hits: list):
             - **Apex**: Root domain allows all subdomains
             - **Subdomain**: Specific subdomain allowed
             - **Reason**: Source or category of the whitelist entry
+            """
+            )
+
+
+def render_context_aware_keyword_analysis(context_analysis: Dict[str, Any]):
+    """
+    Render the context-aware keyword analysis results in a user-friendly format.
+
+    Args:
+        context_analysis: Context-aware keyword analysis data from the backend
+    """
+    if not context_analysis:
+        return
+
+    with st.expander("Context-Aware Keyword Analysis", expanded=True):
+        st.markdown("**Advanced Context-Aware Phishing Detection**")
+        st.markdown(
+            "Intelligent keyword analysis with negation detection and contextual relationships:"
+        )
+
+        # Overall metrics
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            total_hits = len(context_analysis.get("keyword_hits", []))
+            st.metric("Total Keyword Hits", total_hits)
+
+        with col2:
+            total_score = context_analysis.get("total_score", 0.0)
+            # Determine risk level based on context scoring
+            if total_score >= 15.0:
+                st.metric("Context Score", f"{total_score:.1f}", "Very High")
+            elif total_score >= 10.0:
+                st.metric("Context Score", f"{total_score:.1f}", "High")
+            elif total_score >= 5.0:
+                st.metric("Context Score", f"{total_score:.1f}", "Medium")
+            else:
+                st.metric("Context Score", f"{total_score:.1f}", "Low")
+
+        with col3:
+            negated_count = sum(
+                1
+                for hit in context_analysis.get("keyword_hits", [])
+                if hit.get("weight", 0)
+                < keyword_config.keywords.get(hit.get("term"), {}).get("weight", 1.0)
+            )
+            st.metric("Negated Keywords", negated_count)
+
+        with col4:
+            boosted_count = sum(
+                1
+                for hit in context_analysis.get("keyword_hits", [])
+                if hit.get("weight", 0)
+                > keyword_config.keywords.get(hit.get("term"))["weight"] * 1.5
+            )
+            st.metric("Context Boosted", boosted_count)
+
+        # Keyword hits analysis
+        keyword_hits = context_analysis.get("keyword_hits", [])
+        if keyword_hits:
+            st.markdown("---")
+            st.markdown("**Detailed Context Analysis**")
+            st.markdown("Keywords analyzed with negation and context awareness:")
+
+            # Show first 10 most significant hits
+            for i, hit in enumerate(keyword_hits[:10], 1):
+                term = hit.get("term", "")
+                base_weight = keyword_config.keywords.get(term, {}).get("weight", 1.0)
+                actual_weight = hit.get("weight", 0.0)
+                where = hit.get("where", "")
+                pos = hit.get("pos", 0)
+                window = hit.get("window", "")
+
+                # Determine analysis type
+                analysis_type = ""
+                if actual_weight < base_weight * 0.5:
+                    analysis_type = "**NEGATED** - Reduced weight due to negation"
+                    st.error(
+                        f"**{i}.** `{term}` - {where} pos {pos} (weight: {actual_weight:.2f} ↓)"
+                    )
+                elif actual_weight > base_weight * 1.5:
+                    analysis_type = (
+                        "**CONTEXT BOOSTED** - Increased weight due to context"
+                    )
+                    st.warning(
+                        f"**{i}.** `{term}` - {where} pos {pos} (weight: {actual_weight:.2f} ↑)"
+                    )
+                else:
+                    analysis_type = "**STANDARD** - Normal detection"
+                    st.info(
+                        f"**{i}.** `{term}` - {where} pos {pos} (weight: {actual_weight:.2f} =)"
+                    )
+
+                # Show context analysis
+                if analysis_type:
+                    st.write(f"   {analysis_type}")
+                if window:
+                    st.write(f"   Window: `{window}`")
+
+                if i < len(keyword_hits[:10]):
+                    st.write("")
+
+            if len(keyword_hits) > 10:
+                st.write(f"*... and {len(keyword_hits) - 10} more keyword detections*")
+
+        # Term Statistics with context insights
+        term_stats = context_analysis.get("term_stats", {})
+
+        if term_stats:
+            st.markdown("---")
+            st.markdown("**Context-Aware Term Statistics**")
+
+            # Sort by effectiveness (consider both base weight and context effects)
+            terms_with_insights = []
+            for term, stats in term_stats.items():
+                count = stats.get("count", 0)
+                total_score = stats.get("total_score", 0)
+                base_weight = keyword_config.keywords.get(term, {}).get("weight", 1.0)
+                avg_weight = total_score / count if count > 0 else 0
+
+                # Calculate context effectiveness
+                context_effective = "neutral"
+                if avg_weight < base_weight * 0.8:
+                    context_effective = "negated"
+                elif avg_weight > base_weight * 1.2:
+                    context_effective = "boosted"
+
+                terms_with_insights.append(
+                    {
+                        "term": term,
+                        "count": count,
+                        "total_score": total_score,
+                        "avg_weight": avg_weight,
+                        "base_weight": base_weight,
+                        "context_effective": context_effective,
+                    }
+                )
+
+            # Sort by total score
+            terms_with_insights.sort(key=lambda x: x["total_score"], reverse=True)
+
+            import pandas as pd
+
+            table_data = []
+            for item in terms_with_insights[:8]:
+                table_data.append(
+                    {
+                        "Keyword": item["term"],
+                        "Occurrences": item["count"],
+                        "Total Score": round(item["total_score"], 2),
+                        "Avg Weight": f"{item['avg_weight']:.2f}",
+                        "Base Weight": f"{item['base_weight']:.2f}",
+                        "Context Effect": (
+                            "NEGATED"
+                            if item["context_effective"] == "negated"
+                            else (
+                                "BOOSTED"
+                                if item["context_effective"] == "boosted"
+                                else "Normal"
+                            )
+                        ),
+                    }
+                )
+
+            if table_data:
+                df = pd.DataFrame(table_data)
+                st.dataframe(
+                    df,
+                    width="stretch",
+                    column_config={
+                        "Keyword": st.column_config.TextColumn(
+                            "Keyword", width="medium"
+                        ),
+                        "Occurrences": st.column_config.NumberColumn(
+                            "Hits", width="small"
+                        ),
+                        "Total Score": st.column_config.NumberColumn(
+                            "Score", width="small"
+                        ),
+                        "Avg Weight": st.column_config.TextColumn(
+                            "Avg Weight", width="small"
+                        ),
+                        "Base Weight": st.column_config.TextColumn(
+                            "Base Weight", width="small"
+                        ),
+                        "Context Effect": st.column_config.TextColumn(
+                            "Context", width="medium"
+                        ),
+                    },
+                    hide_index=True,
+                )
+
+                if len(table_data) > 8:
+                    st.write(f"*... and {len(terms_with_insights) - 8} more terms*")
+
+        # Context analysis summary
+        st.markdown("---")
+        st.markdown("**Context Analysis Summary**")
+
+        summary_items = []
+
+        if negated_count > 0:
+            summary_items.append(
+                f"{negated_count} keywords affected by negation detection"
+            )
+        if boosted_count > 0:
+            summary_items.append(
+                f"{boosted_count} keywords boosted by contextual relationships"
+            )
+
+        # Risk assessment based on context findings
+        high_risk_negations = sum(
+            1
+            for hit in keyword_hits
+            if hit.get("weight", 0)
+            < keyword_config.keywords.get(hit.get("term"), {}).get("weight", 1.0) * 0.5
+        )
+        if high_risk_negations > 0:
+            summary_items.append(
+                f"**HIGH ATTENTION**: {high_risk_negations} heavily negated suspicious keywords"
+            )
+
+        low_effective_keywords = sum(
+            1 for hit in keyword_hits if hit.get("weight", 0) < 0.5
+        )
+        if low_effective_keywords > 0:
+            summary_items.append(
+                f"{low_effective_keywords} keywords effectively eliminated by negation"
+            )
+
+        context_elevated_risk = sum(
+            1
+            for hit in keyword_hits
+            if hit.get("weight", 0)
+            > keyword_config.keywords.get(hit.get("term"), {}).get("weight", 1.0) * 2.0
+        )
+        if context_elevated_risk > 0:
+            summary_items.append(
+                f"{context_elevated_risk} keywords significantly boosted by context"
+            )
+
+        if not summary_items:
+            summary_items.append(
+                "Standard keyword analysis with no significant context effects"
+            )
+
+        for item in summary_items:
+            st.write(f"• {item}")
+
+        # Technical notes
+        with st.expander("📈 Context Analysis Details", expanded=False):
+            st.markdown(
+                """
+            **Context-Aware Detection:**
+            - **Negation Detection**: Keywords preceded by negation words (not, isn't, etc.) get 0.2x weight
+            - **Context Boosting**: Keywords near related terms (e.g., verify + account) get 1.5x weight
+            - **Window Analysis**: Context examined within 100-character proximity around keywords
+            - **Position Multipliers**: Subject keywords (3x), early body (2x), regular body (1x)
+            - **Combined Effects**: Both position and context multipliers applied simultaneously
             """
             )
 

@@ -134,11 +134,17 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
         # Perform core analysis with sender identity for confusable scoring
         result = analyze_core(headers, subject, text_body, html_body, sender_identity)
 
-        # Add detailed keyword analysis
+        # Add detailed keyword analysis (position-aware and context-aware)
         from backend.core.keywords import analyze_keywords
 
+        # Position-aware keyword analysis (current default)
         detailed_keyword_analysis = analyze_keywords(
             subject, text_body, use_positions=True
+        )
+
+        # Context-aware keyword analysis (for raw analysis data)
+        context_aware_analysis = analyze_keywords(
+            subject, text_body, use_positions=True, use_context=True
         )
 
         # Clean up the result - remove redundant fields from score.py analysis
@@ -207,8 +213,11 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
             if "url_findings" in html_metrics and html_metrics["url_findings"]:
                 result["url_findings"] = html_metrics["url_findings"]
 
-        # Add detailed keyword analysis results
+        # Add detailed keyword analysis results (position-aware)
         result["keyword_analysis"] = detailed_keyword_analysis
+
+        # Add context-aware keyword analysis for raw analysis data
+        result["raw_context_aware_analysis"] = context_aware_analysis
 
         # Add confusable findings summary for quick access
         confusable_findings = []

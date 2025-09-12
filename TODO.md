@@ -28,7 +28,7 @@ This document tracks the implementation status of features in the phishing detec
 ### Keywords
 
 - [x] Implement `keywords.py` - Basic token scan with hardcoded keywords
-- [ ] Improve `keywords.py` - Make keywords configurable, add weights, better regex patterns, context awareness
+- [x] Improve `keywords.py` - Make keywords configurable, add weights, better regex patterns, context awareness
 
 ### Score
 
