@@ -185,6 +185,15 @@ class WhitelistHit:
 
 
 @dataclass
+class ReplyToFinding:
+    has_mismatch: bool
+    severity: float
+    reasons: List[str]
+    from_address: Optional[str]
+    reply_to_address: Optional[str]
+
+
+@dataclass
 class SubscriptionMetadata:
     list_unsubscribe: Optional[ListUnsubscribe] = None
     list_unsubscribe_post: Optional[str] = None

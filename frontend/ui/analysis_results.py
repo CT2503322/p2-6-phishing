@@ -136,6 +136,10 @@ def render_analysis_results(result: Dict[str, Any]):
     if "sender_identity" in result:
         render_sender_identity_results(result["sender_identity"])
 
+    # Reply-To vs From Mismatch Analysis
+    if "replyto_from_mismatch" in result:
+        render_replyto_from_mismatch_results(result["replyto_from_mismatch"])
+
     # Authentication Results
     if "auth" in result:
         render_authentication_results(result["auth"])
@@ -2443,6 +2447,135 @@ def render_rule_breakdown(scored_analysis: Dict[str, Any]):
             - **Rule Types Evaluated:** URL analysis, sender identity, content patterns, keyword frenzy, brand spoofing
             """
             )
+
+
+def render_replyto_from_mismatch_results(replyto_mismatch: Dict[str, Any]):
+    """
+    Render the Reply-To vs From mismatch analysis results in a user-friendly format.
+
+    Args:
+        replyto_mismatch: Reply-To mismatch analysis data from the backend
+    """
+    if not replyto_mismatch:
+        return
+
+    with st.expander("Reply-To vs From Analysis", expanded=True):
+        st.markdown("**Reply-To vs From Header Mismatch Detection**")
+        st.markdown(
+            "Advanced analysis of sender header consistency and spoofing indicators:"
+        )
+
+        # Basic analysis results
+        has_mismatch = replyto_mismatch.get("has_mismatch", False)
+        severity = replyto_mismatch.get("severity", 0.0)
+        reasons = replyto_mismatch.get("reasons", [])
+        from_address = replyto_mismatch.get("from_address")
+        reply_to_address = replyto_mismatch.get("reply_to_address")
+
+        # Summary metrics
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            if has_mismatch:
+                st.metric("Mismatch Detected", "YES", "ALERT")
+            else:
+                st.metric("Mismatch Detected", "NO", "SAFE")
+        with col2:
+            st.metric("Severity Score", f"{severity:.1f}")
+        with col3:
+            st.metric("Reasons Found", len(reasons))
+
+        # Threat level assessment
+        if has_mismatch:
+            st.markdown("---")
+            st.markdown("**Mismatch Details**")
+
+            if severity >= 2.5:
+                st.error("**HIGH RISK:** Significant spoofing indicators detected")
+            elif severity >= 2.0:
+                st.warning("**MEDIUM RISK:** Suspicious domain changes")
+            elif severity >= 1.0:
+                st.warning("**LOW RISK:** Minor address differences")
+            else:
+                st.info("**VERY LOW RISK:** Likely legitimate differences")
+
+            # Address comparison
+            col1, col2 = st.columns(2)
+            with col1:
+                st.markdown("**From Address:**")
+                if from_address:
+                    st.code(from_address)
+                else:
+                    st.info("N/A")
+
+            with col2:
+                st.markdown("**Reply-To Address:**")
+                if reply_to_address:
+                    st.code(reply_to_address)
+                else:
+                    st.info("N/A")
+
+            # Reasons for mismatch
+            if reasons:
+                st.markdown("**Analysis Reasons:**")
+                for reason in reasons:
+                    if "Potential username spoofing" in reason:
+                        st.error(f"• {reason}")
+                    elif "Suspicious domain mismatch" in reason:
+                        st.error(f"• {reason}")
+                    elif "Domain mismatch" in reason:
+                        st.warning(f"• {reason}")
+                    else:
+                        st.info(f"• {reason}")
+
+            # Security implications
+            st.markdown("---")
+            st.markdown("**Security Implications**")
+
+            if "Potential username spoofing" in str(reasons):
+                st.error(
+                    "**CRITICAL:** Same username but different domain - classic spoofing pattern"
+                )
+            elif "Suspicious domain mismatch" in str(reasons):
+                st.warning(
+                    "**ALERT:** Domains look similar but differ - possible typosquatting"
+                )
+            elif has_mismatch:
+                st.info(
+                    "**Note:** Address differences may be legitimate if reply-to is handled by a different service"
+                )
+
+        else:
+            st.markdown("---")
+            st.markdown("**Analysis Result**")
+            st.success("**No Reply-To vs From mismatches detected**")
+            st.markdown("Sender addresses appear consistent and legitimate.")
+
+        # Technical details
+        with st.expander("Technical Analysis Details", expanded=False):
+            st.markdown("**Detection Methods Applied**")
+
+            detection_methods = [
+                "Address-level comparison (exact string match)",
+                "Domain extraction and comparison",
+                "Same username, different domain detection (spoofing indicator)",
+                "Domain similarity analysis (typosquatting detection)",
+                "Organizational domain comparison",
+            ]
+
+            for method in detection_methods:
+                st.write(f"• {method}")
+
+            st.markdown("---")
+            st.markdown("**Severity Scoring Scale**")
+            severity_info = [
+                "0.0 - No mismatch detected",
+                "1.0 - Address mismatch (same domain)",
+                "2.0 - Domain mismatch (different organization)",
+                "2.5+ - Same username, different domain (spoofing indicator)",
+            ]
+
+            for info in severity_info:
+                st.write(f"• {info}")
 
 
 def render_explanations(explanations: Dict[str, Any]):

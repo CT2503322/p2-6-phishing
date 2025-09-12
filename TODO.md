@@ -57,9 +57,9 @@ This document tracks the implementation status of features in the phishing detec
 
 ### Reply-To vs From Mismatch
 
-- [ ] Implement `replyto_from.py` - Reply-To vs From mismatch rules
-- [ ] Compare Reply-To and From headers for inconsistencies
-- [ ] Flag suspicious mismatches
+- [x] Implement `replyto_from.py` - Reply-To vs From mismatch rules
+- [x] Compare Reply-To and From headers for inconsistencies
+- [x] Flag suspicious mismatches
 
 ### Attachment Heuristics
 

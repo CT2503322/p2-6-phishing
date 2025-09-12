@@ -14,6 +14,7 @@ from backend.ingestion.parse_eml import (
 from backend.ingestion.sender_identity import SenderIdentityAnalyzer
 from backend.ingestion.headers import HeaderNormalizer
 from backend.core.auth_checks.auth_headers import get_auth_data, get_raw_auth_headers
+from backend.core.replyto_from import analyze_replyto_from_mismatch
 from dataclasses import asdict
 from fastapi import UploadFile, FastAPI, File, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -176,6 +177,15 @@ async def analyze_eml(request: Request, file: UploadFile = File(...)) -> JSONRes
         if hasattr(sender_identity, "authentication_results"):
             sender_identity.authentication_results = {}
         result["sender_identity"] = asdict(sender_identity)
+
+        # Add comprehensive Reply-To vs From mismatch analysis
+        replyto_finding = analyze_replyto_from_mismatch(
+            from_address=sender_identity.from_address,
+            from_domain=sender_identity.from_domain,
+            reply_to_address=sender_identity.reply_to_address,
+            reply_to_domain=sender_identity.reply_to_domain,
+        )
+        result["replyto_from_mismatch"] = asdict(replyto_finding)
 
         # Add authentication data from auth parser
         auth_data = get_auth_data(headers, auth_mode="header_trust")
