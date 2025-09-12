@@ -33,7 +33,7 @@ This document tracks the implementation status of features in the phishing detec
 ### Score
 
 - [x] Implement `score.py` - Basic weighted aggregation for risk scoring
-- [ ] Improve `score.py` - Add more sophisticated scoring algorithms, confidence levels, detailed explanations
+- [x] Improve `score.py` - Add more sophisticated scoring algorithms, confidence levels, detailed explanations
 
 ### Position Analysis
 

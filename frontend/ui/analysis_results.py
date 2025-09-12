@@ -18,31 +18,102 @@ def render_analysis_results(result: Dict[str, Any]):
 
     # Display overall score and label
     if "score_total" in result and "label" in result:
-        col1, col2, col3 = st.columns([2, 1, 1])
+        # Advanced scoring metrics display
+        if "scored_analysis" in result:
+            # Advanced analysis available
+            scored_analysis = result["scored_analysis"]
 
-        with col1:
-            st.header("Analysis Result")
+            # Top-level metrics
+            col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
 
-        with col2:
-            score = result["score_total"]
-            if score >= result.get("threshold_used", 3.2):
-                st.metric("Risk Score", f"{score:.2f}", "HIGH")
-            elif score >= (result.get("threshold_used", 3.2) * 0.5):
-                st.metric("Risk Score", f"{score:.2f}", "MEDIUM")
-            else:
-                st.metric("Risk Score", f"{score:.2f}", "LOW")
+            with col1:
+                st.header("Advanced Analysis Result")
 
-        with col3:
-            label = result["label"]
-            if label == "PHISHING":
-                st.error("PHISHING")
-            else:
-                st.success("SAFE")
+            with col2:
+                score = result["score_total"]
+                threshold = scored_analysis.get("threshold_used", 3.2)
+                if score >= threshold:
+                    st.metric("Risk Score", f"{score:.2f}", "HIGH")
+                elif score >= threshold * 0.5:
+                    st.metric("Risk Score", f"{score:.2f}", "MEDIUM")
+                else:
+                    st.metric("Risk Score", f"{score:.2f}", "LOW")
 
-        st.markdown("---")
+            with col3:
+                label = result["label"]
+                if label == "PHISHING":
+                    st.error("PHISHING")
+                else:
+                    st.success("SAFE")
 
-        # Enhanced Analysis Technology Note
-        if "raw_context_aware_analysis" in result:
+            with col4:
+                confidence = scored_analysis.get("confidence_level", 0.0)
+                if confidence >= 0.8:
+                    st.metric("Confidence", f"{confidence:.1%}")
+                elif confidence >= 0.6:
+                    st.metric("Confidence", f"{confidence:.1%}")
+                else:
+                    st.metric("Confidence", f"{confidence:.1%}", "?")
+
+            st.markdown("---")
+
+            # Advanced metrics row
+            col1, col2, col3, col4 = st.columns([1, 1, 1, 1])
+
+            with col1:
+                prob = scored_analysis.get("phishing_probability", 0.0)
+                uncertainty = scored_analysis.get("uncertainty_level", 0.0)
+                st.metric("Phishing Probability", f"{prob:.1%}")
+
+            with col2:
+                st.metric("Uncertainty", f"{uncertainty:.1%}")
+
+            with col3:
+                rules = scored_analysis.get("rule_counts", {})
+                active_rules = rules.get("total_rules", 0)
+                st.metric("Active Rules", active_rules)
+
+            with col4:
+                high_rules = rules.get("strong_contributors", 0)
+                st.metric("High-Impact Rules", high_rules)
+
+            st.markdown("---")
+
+            # Enhanced Analysis Technology Note
+            st.info(
+                """
+            **Advanced Machine Learning Analysis**: This analysis includes sophisticated algorithms:
+            adaptive rule weighting, probabilistic scoring, confidence assessment, and behavioral feature extraction.
+            View detailed breakdown in the "Rule Analysis" section below.
+            """
+            )
+        else:
+            # Legacy analysis display
+            col1, col2, col3 = st.columns([2, 1, 1])
+
+            with col1:
+                st.header("Analysis Result")
+
+            with col2:
+                score = result["score_total"]
+                if score >= result.get("threshold_used", 3.2):
+                    st.metric("Risk Score", f"{score:.2f}", "HIGH")
+                elif score >= (result.get("threshold_used", 3.2) * 0.5):
+                    st.metric("Risk Score", f"{score:.2f}", "MEDIUM")
+                else:
+                    st.metric("Risk Score", f"{score:.2f}", "LOW")
+
+            with col3:
+                label = result["label"]
+                if label == "PHISHING":
+                    st.error("PHISHING")
+                else:
+                    st.success("SAFE")
+
+            st.markdown("---")
+
+        # Enhanced Analysis Technology Note (legacy fallback)
+        if "raw_context_aware_analysis" in result and "scored_analysis" not in result:
             st.info(
                 """
             **Advanced Analysis Available**: This analysis includes context-aware keyword detection,
@@ -56,6 +127,10 @@ def render_analysis_results(result: Dict[str, Any]):
     if "scored_analysis" in result:
         scored_analysis = result["scored_analysis"]
         render_rule_breakdown(scored_analysis)
+
+    # Advanced explanations (for scored analysis)
+    if "explanations" in result:
+        render_explanations(result["explanations"])
 
     # Sender Identity Analysis
     if "sender_identity" in result:
@@ -2367,4 +2442,161 @@ def render_rule_breakdown(scored_analysis: Dict[str, Any]):
             - **Total Rules:** `{total_rules}`
             - **Rule Types Evaluated:** URL analysis, sender identity, content patterns, keyword frenzy, brand spoofing
             """
+            )
+
+
+def render_explanations(explanations: Dict[str, Any]):
+    """
+    Render the detailed explanations from the advanced scoring system.
+
+    Args:
+        explanations: Explanations dictionary from the backend analysis
+    """
+    if not explanations:
+        return
+
+    with st.expander("💡 Detailed Analysis Explanations", expanded=True):
+        st.markdown("**Comprehensive Scoring Explanation**")
+        st.markdown(
+            "Detailed analysis explaining the risk assessment and decision making:"
+        )
+
+        # Main summary
+        if explanations.get("summary"):
+            summary = explanations["summary"]
+            # Color coding based on summary content
+            if "High risk" in summary or "HIGH RISK" in summary:
+                st.error("**SUMMARY:** " + summary)
+            elif "Medium risk" in summary or "MODERATE" in summary:
+                st.warning("**SUMMARY:** " + summary)
+            else:
+                st.success("**SUMMARY:** " + summary)
+
+        st.markdown("---")
+
+        # Categorization breakdown
+        if explanations.get("categories"):
+            st.markdown("**Analysis by Category**")
+
+            categories = explanations["categories"]
+            for cat_name, cat_info in categories.items():
+                rules_triggered = cat_info.get("rules_triggered", 0)
+                total_impact = cat_info.get("total_impact", 0)
+                confidence_boost = cat_info.get("confidence_boost", 0)
+                details = cat_info.get("details", [])
+
+                # Display category header
+                if total_impact >= 2.0:
+                    st.error(
+                        f"**{cat_name.title()}:** {rules_triggered} rules triggered"
+                    )
+                elif total_impact >= 1.0:
+                    st.warning(
+                        f"**{cat_name.title()}:** {rules_triggered} rules triggered"
+                    )
+                else:
+                    st.info(
+                        f"**{cat_name.title()}:** {rules_triggered} rules triggered"
+                    )
+
+                # Show impact metrics
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    st.metric(f"Rules in {cat_name.title()}", rules_triggered)
+                with col2:
+                    st.metric(f"Impact Score", f"{total_impact:.2f}")
+                with col3:
+                    st.metric(f"Confidence", f"+{confidence_boost:.1%}")
+
+                # Show evidence details
+                with st.expander(
+                    f"Evidence Details ({cat_name.title()})", expanded=False
+                ):
+                    for detail in details:
+                        st.write(f"• {detail}")
+
+                st.write("")
+
+        # Recommendations
+        if explanations.get("recommendations"):
+            st.markdown("---")
+            st.markdown("**Recommended Actions**")
+
+            recommendations = explanations["recommendations"]
+            for i, rec in enumerate(recommendations, 1):
+                if "Immediately" in rec or "junks" in rec.lower():
+                    st.error(f"**{i}.** {rec}")
+                elif "Consider" in rec or "Watch" in rec or "Verify" in rec:
+                    st.warning(f"**{i}.** {rec}")
+                else:
+                    st.success(f"**{i}.** {rec}")
+
+        # False positive/negative risk assessment
+        false_positive_risks = explanations.get("false_positive_risks", [])
+        false_negative_risks = explanations.get("false_negative_risks", [])
+
+        if false_positive_risks and false_negative_risks:
+            st.markdown("---")
+            st.markdown("**Risk Assessment Insights**")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("**False Negative Risks**")
+                for risk in false_negative_risks:
+                    st.warning("⚠️ " + risk)
+
+            with col2:
+                st.markdown("**False Positive Risks**")
+                for risk in false_positive_risks:
+                    st.info("💡 " + risk)
+
+        elif false_positive_risks:
+            st.markdown("---")
+            st.markdown("**Risk Assessment Insights**")
+            st.markdown("**False Positive Risks**")
+            for risk in false_positive_risks:
+                st.info("💡 " + risk)
+
+        elif false_negative_risks:
+            st.markdown("---")
+            st.markdown("**Risk Assessment Insights**")
+            st.markdown("**False Negative Risks**")
+            for risk in false_negative_risks:
+                st.warning("⚠️ " + risk)
+
+        # Technical analysis details
+        with st.expander("🔬 Technical Analysis Details", expanded=False):
+            st.markdown("**Advanced Algorithm Insights**")
+
+            # Algorithm explanations
+            algorithm_insights = [
+                "Adaptive weight adjustments reduce false positives in legitimate business communication",
+                "Probabilistic scoring accounts for uncertainty near decision thresholds",
+                "Confidence levels reflect algorithm agreement across multiple detection methods",
+                "ML features capture behavioral patterns indicative of sophisticated attacks",
+                "Rule interactions boost detection of combined attack techniques",
+            ]
+
+            for insight in algorithm_insights:
+                st.write(f"• {insight}")
+
+            # Performance characteristics
+            if explanations.get("summary"):
+                summary = explanations["summary"]
+                if "confidence is low" in summary.lower():
+                    st.markdown("**Note:** Low confidence may require manual review")
+                elif "risk" in summary.lower():
+                    st.markdown(
+                        "**Note:** Algorithm reached high certainty in risk assessment"
+                    )
+
+        # Branded recommendation disclaimer
+        if any(
+            "brand" in cat_name.lower()
+            for cat_name in explanations.get("categories", {}).keys()
+        ):
+            st.markdown("---")
+            st.caption(
+                "*Brand analysis covers major financial institutions, e-commerce platforms, and government agencies*"
             )
