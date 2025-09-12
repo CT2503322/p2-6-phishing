@@ -184,8 +184,8 @@ This document tracks the implementation status of features in the phishing detec
 
 - [ ] Implement `test_position.py` - Position analysis (subject/early-body) tests
 - [x] Implement `test_edit_distance.py` - Fuzzy matching and edit distance tests (comprehensive implementation with 200+ test cases)
-- [ ] Implement `test_url_checks.py` - URL validation and security tests
-- [ ] Implement `test_replyto_from.py` - Reply-To/From header mismatch tests
+- [x] Implement `test_url_checks.py` - URL validation and security tests
+- [x] Implement `test_replyto_from.py` - Reply-To/From header mismatch tests
 - [ ] Implement `test_confusables.py` - Unicode confusable character tests
 - [ ] Implement `test_explain.py` - Explanation module tests
 - [ ] Implement `test_text.py` - Text processing utility tests
