@@ -32,6 +32,16 @@ def main():
             help="Choose the specific ML model to use"
         )
 
+    # Sub-selection for LLM models
+    llm_model = None
+    if detection_method == "LLM":
+        llm_model = st.selectbox(
+            "Select LLM Model",
+            options=["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo"],
+            index=0,  # Default to first option
+            help="Choose the specific LLM model to use"
+        )
+
     uploaded_file = st.file_uploader("Upload .eml file", type=["eml"])
 
     if uploaded_file is not None:
@@ -61,6 +71,8 @@ def main():
             request_data = {"parsed": parsed_data}
             if ml_model:
                 request_data["ml_model"] = ml_model
+            if llm_model:
+                request_data["model"] = llm_model
             analyze_response = requests.post(analyze_endpoint, json=request_data)
             if analyze_response.status_code == 200:
                 analysis_data = analyze_response.json()
