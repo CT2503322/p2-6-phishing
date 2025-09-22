@@ -7,7 +7,6 @@ from typing import Dict, Any, Optional
 # API Configuration
 API_BASE_URL = "http://localhost:8000"
 PARSE_ENDPOINT = f"{API_BASE_URL}/parse/eml"
-ANALYZE_ENDPOINT = f"{API_BASE_URL}/analyze/parsed"
 
 
 def main():
@@ -16,6 +15,22 @@ def main():
     st.set_page_config(page_title="Phishing Email Analyzer", layout="wide")
 
     st.title("Phishing Email Analyzer")
+
+    # Detection method selection
+    detection_method = st.selectbox(
+        "Select Detection Method",
+        options=["algorithmic", "ML", "LLM"],
+        help="Choose the detection method for phishing analysis"
+    )
+
+    # Sub-selection for ML models
+    ml_model = None
+    if detection_method == "ML":
+        ml_model = st.selectbox(
+            "Select ML Model",
+            options=["linear regression", "decision tree", "naive bayes"],
+            help="Choose the specific ML model to use"
+        )
 
     uploaded_file = st.file_uploader("Upload .eml file", type=["eml"])
 
@@ -33,8 +48,20 @@ def main():
                 return
 
         # Analyze the parsed data
-        with st.spinner("Analyzing for phishing..."):
-            analyze_response = requests.post(ANALYZE_ENDPOINT, json={"parsed": parsed_data})
+        with st.spinner(f"Analyzing for phishing using {detection_method} detection..."):
+            if detection_method == "algorithmic":
+                analyze_endpoint = f"{API_BASE_URL}/analyze/algorithmic"
+            elif detection_method == "ML":
+                analyze_endpoint = f"{API_BASE_URL}/analyze/ml"
+            elif detection_method == "LLM":
+                analyze_endpoint = f"{API_BASE_URL}/analyze/llm"
+            else:
+                st.error("Unknown detection method")
+                return
+            request_data = {"parsed": parsed_data}
+            if ml_model:
+                request_data["ml_model"] = ml_model
+            analyze_response = requests.post(analyze_endpoint, json=request_data)
             if analyze_response.status_code == 200:
                 analysis_data = analyze_response.json()
                 st.subheader("Analysis Results")
