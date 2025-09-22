@@ -2,7 +2,9 @@
   "emails": [
     {
       "file": "tada.eml",
-      "message_id": "<AGjZ1edZQQa7IYfC7tsfzg@geopod-ismtpd-canary-0>",
+      "message_id": "AGjZ1edZQQa7IYfC7tsfzg@geopod-ismtpd-canary-0",
+      "reply_to": "noreply@info.tada.global",
+      "return_path": "bounces+43663810-be39-randysee69=gmail.com@em9863.info.tada.global",
       "date": "Mon, 08 Sep 2025 08:32:23 +0000",
       "from": "TADA <noreply@info.tada.global>",
       "to": "randysee69@gmail.com",
