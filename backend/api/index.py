@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from backend.core.url_checks import extract_urls
 from backend.ingestion.parse_eml import parse_eml
 from backend.core.scoring import score_email
+from backend.core.ml import (train_nb_complement, train_nb_multinomial, train_logistic_regression, predict_phishing, load_training_data)
 from fastapi import UploadFile, FastAPI, File, HTTPException, Body
 from fastapi.responses import JSONResponse
 
@@ -98,17 +99,20 @@ async def analyze_ml(data: dict):
         urls = extract_urls(body_text)
         attachments = [parsed.get('attachments', '')]
 
-        if ml_model == 'default_ml': # Placeholder
-            label, score, explanations, matched_keywords, suspicious_urls = score_email(headers, body_text, urls, attachments)
-            highlighted_body = highlight_body(body_text, matched_keywords, suspicious_urls)
-        elif ml_model == 'custom_ml': # Different logic here
-            label, score, explanations, matched_keywords, suspicious_urls = score_email(headers, body_text, urls, attachments)
-            highlighted_body = highlight_body(body_text, matched_keywords, suspicious_urls)
-        else:
-            label, score, explanations, matched_keywords, suspicious_urls = score_email(headers, body_text, urls, attachments)
-            highlighted_body = highlight_body(body_text, matched_keywords, suspicious_urls)
+        data = load_training_data()
 
-        return JSONResponse({"label": label, "score": score, "explanations": explanations, "highlighted_body": highlighted_body, "detection_method": "ML", "ml_model": ml_model})
+        model = None
+        if ml_model == "naivebayes_complement":
+            model, X_test, y_test = train_nb_complement(data)
+        elif ml_model == "naivebayes_multinomial":
+            model, X_test, y_test = train_nb_multinomial(data)
+        elif ml_model == "logistic_regression":
+            model, X_test, y_test = train_logistic_regression(data)
+        else:
+            raise HTTPException(status_code=400, detail="model not working")
+        mlguess = predict_phishing(body_text, model)
+
+        return (JSONResponse({"label": mlguess["label"], "score": mlguess["percent"], "explanations": ["N/A"], "highlighted_body": body_text, "detection_method": "ML", "ml_model": ml_model}))
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Analysis error: {e}")
 
