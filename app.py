@@ -28,7 +28,7 @@ def main():
     if detection_method == "ML":
         ml_model = st.selectbox(
             "Select ML Model",
-            options=["linear regression", "decision tree", "naive bayes"],
+            options=["naivebayes_complement", "naivebayes_multinomial", "logistic_regression", "decision tree", "naive bayes"],
             help="Choose the specific ML model to use"
         )
 
