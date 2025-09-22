@@ -1,9 +1,11 @@
 import sys
 import os
+import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from backend.core.score import analyze as analyze_core
+from backend.ingestion.parse_eml import parse_eml
 from fastapi import UploadFile, FastAPI, File, HTTPException
 from fastapi.responses import JSONResponse
 from email import policy
@@ -22,27 +24,53 @@ def health():
     return {"ok": True}
 
 
+@app.post("/parse/eml")
+async def parse_eml_endpoint(file: UploadFile = File(...)):
+    if not file.filename.lower().endswith(".eml"):
+        raise HTTPException(status_code=400, detail="Only .eml files are supported")
+    raw = await file.read()
+    try:
+        with tempfile.NamedTemporaryFile(mode='w+b', delete=False, suffix='.eml') as tmp_file:
+            tmp_file.write(raw)
+            tmp_path = tmp_file.name
+
+        parsed = parse_eml(tmp_path)
+        os.unlink(tmp_path)
+        return JSONResponse(parsed)
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"Parse error: {e}")
+
+
 @app.post("/analyze/eml")
 async def analyze_eml(file: UploadFile = File(...)):
     if not file.filename.lower().endswith(".eml"):
         raise HTTPException(status_code=400, detail="Only .eml files are supported")
     raw = await file.read()
     try:
-        message = BytesParser(policy=policy.default).parsebytes(raw)
-        from backend.ingestion.parse_eml import eml_to_parts, validate_email_message
+        with tempfile.NamedTemporaryFile(mode='w+b', delete=False, suffix='.eml') as tmp_file:
+            tmp_file.write(raw)
+            tmp_path = tmp_file.name
 
-        # Validate that the parsed message is actually a valid email
-        if not validate_email_message(message):
-            raise HTTPException(
-                status_code=422, detail="Invalid or corrupted email format"
-            )
-
-        parts = eml_to_parts(message)
-        result = analyze_core(
-            parts["headers"], parts["subject"], parts["body"], parts["html"]
-        )
+        parsed = parse_eml(tmp_path)
+        os.unlink(tmp_path)
+        headers = {
+            'from': parsed['from'],
+            'to': parsed['to'],
+            'cc': parsed['cc'],
+            'bcc': parsed['bcc'],
+            'subject': parsed['subject'],
+            'date': parsed['date'],
+            'reply_to': parsed['reply_to'],
+            'return_path': parsed['return_path'],
+            'message_id': parsed['message_id'],
+            'mime_version': parsed['mime_version'],
+            'content_type': parsed['content_type'],
+            'content_transfer_encoding': parsed['content_transfer_encoding']
+        }
+        subject = parsed['subject']
+        body = parsed['body']
+        html = ''
+        result = analyze_core(headers, subject, body, html)
         return JSONResponse(result)
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Parse error: {e}")
