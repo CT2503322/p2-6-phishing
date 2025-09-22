@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import joblib
 
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
@@ -32,7 +33,7 @@ def load_training_data():
     return data
 
 """
-Training functions (note: the X_test and y_test returned are for the accuracy of the models, which is more for testing rather than intended to be used in production)
+Training functions
 """
 
 # Trains a Naive Bayes(ComplementNB version) model on data provided. Better for unbalanced data such as the Kaggle dataset
@@ -45,12 +46,12 @@ def train_nb_complement(data):
     )
 
     clf = make_pipeline(
-        TfidfVectorizer(ngram_range=(1,2), min_df=2), 
+        TfidfVectorizer(ngram_range=(1,2), min_df=2),
         ComplementNB()
     )
 
     clf.fit(X_train, y_train)
-    return (clf, X_test, y_test)
+    return clf
 
 # Trains a Naive Bayes(MultinomialNB version) model on data provided. Better for unbalanced data such as the Kaggle dataset
 def train_nb_multinomial(data):
@@ -62,12 +63,12 @@ def train_nb_multinomial(data):
     )
 
     clf = make_pipeline(
-        TfidfVectorizer(ngram_range=(1,2), min_df=2), 
+        TfidfVectorizer(ngram_range=(1,2), min_df=2),
         MultinomialNB()
     )
 
     clf.fit(X_train, y_train)
-    return (clf, X_test, y_test)
+    return clf
 
 # Trains a Logistic Regression model on data provided. An alternative to Naive Bayes models
 def train_logistic_regression(data):
@@ -84,7 +85,24 @@ def train_logistic_regression(data):
     )
 
     clf.fit(X_train, y_train)
-    return (clf, X_test, y_test)
+    return clf
+
+"""
+Model persistence functions
+"""
+
+def save_model(model, model_name):
+    model_dir = os.path.join(os.path.dirname(__file__), "..", "models")
+    os.makedirs(model_dir, exist_ok=True)
+    model_path = os.path.join(model_dir, f"{model_name}.pkl")
+    joblib.dump(model, model_path)
+    return model_path
+
+def load_model(model_name):
+    model_path = os.path.join(os.path.dirname(__file__), "..", "models", f"{model_name}.pkl")
+    if os.path.exists(model_path):
+        return joblib.load(model_path)
+    return None
 
 """
 Testing function
@@ -111,27 +129,18 @@ if __name__ == "__main__":
     # read enron emails (legacy, not used)
     # load_enron("enron_emails_extracted.json")
 
-
     # load training data from Kaggle dataset
     datatest = load_training_data()
 
     # Trains all the models for comparison, but takes some time though, recommended to just import the models required from here instead.
-    nbc_model, X_test, y_test = train_nb_complement(datatest)
-    nbm_model, X_test, y_test = train_nb_multinomial(datatest)
-    lr_model, X_test, y_test = train_logistic_regression(datatest)
+    nbc_model = train_nb_complement(datatest)
+    nbm_model = train_nb_multinomial(datatest)
+    lr_model = train_logistic_regression(datatest)
 
-    """
-    Tests for the models, better for debug than actual production use
-    """
-    # test_model_accuracy(nbc_model, 
-    #                  [d["text"] for d in datatest], 
-    #                  [d["label"] for d in datatest])
-    # test_model_accuracy(nbm_model, 
-    #                  [d["text"] for d in datatest], 
-    #                  [d["label"] for d in datatest])
-    # test_model_accuracy(lr_model, 
-    #                  [d["text"] for d in datatest], 
-    #                  [d["label"] for d in datatest])
+    # Save the models
+    save_model(nbc_model, "naivebayes_complement")
+    save_model(nbm_model, "naivebayes_multinomial")
+    save_model(lr_model, "logistic_regression")
 
     """
     Basic test case for prediction function, prints out the results of all 3 models for comparison.

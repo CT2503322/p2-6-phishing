@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from backend.core.url_checks import extract_urls
 from backend.ingestion.parse_eml import parse_eml
 from backend.core.scoring import score_email
-from backend.core.ml import (train_nb_complement, train_nb_multinomial, train_logistic_regression, predict_phishing, load_training_data)
+from backend.core.ml import train_nb_complement, train_nb_multinomial, train_logistic_regression, predict_phishing, load_training_data, load_model, save_model
 from fastapi import UploadFile, FastAPI, File, HTTPException, Body
 from fastapi.responses import JSONResponse
 
@@ -92,34 +92,28 @@ async def analyze_ml(data: dict):
     parsed = data['parsed']
     ml_model = data['ml_model']
     try:
-        # Placeholder for ML detection - using algorithmic for now
-        headers = {
-            'from': parsed.get('from', ''),
-            'reply-to': parsed.get('reply-to', ''),
-            'return-path': parsed.get('return-path', ''),
-            'subject': parsed.get('subject', ''),
-            'message-id': parsed.get('message_id', ''),
-            'received': parsed.get('received', '')
-        }
-
         body_text = parsed.get('body', '')
-        urls = extract_urls(body_text)
-        attachments = [parsed.get('attachments', '')]
-
-        data = load_training_data()
 
         model = None
-        if ml_model == "naivebayes_complement":
-            model, X_test, y_test = train_nb_complement(data)
-        elif ml_model == "naivebayes_multinomial":
-            model, X_test, y_test = train_nb_multinomial(data)
-        elif ml_model == "logistic_regression":
-            model, X_test, y_test = train_logistic_regression(data)
+        model_name_map = {
+            "naivebayes_complement": ("naivebayes_complement", train_nb_complement),
+            "naivebayes_multinomial": ("naivebayes_multinomial", train_nb_multinomial),
+            "logistic_regression": ("logistic_regression", train_logistic_regression)
+        }
+
+        if ml_model in model_name_map:
+            model_filename, train_func = model_name_map[ml_model]
+            model = load_model(model_filename)
+            if model is None:
+                training_data = load_training_data()
+                model = train_func(training_data)
+                save_model(model, model_filename)
         else:
-            raise HTTPException(status_code=400, detail="model not working")
+            raise HTTPException(status_code=400, detail="Invalid ML model specified")
+
         mlguess = predict_phishing(body_text, model)
 
-        return (JSONResponse({"label": mlguess["label"], "score": mlguess["percent"], "explanations": ["N/A"], "highlighted_body": body_text, "detection_method": "ML", "ml_model": ml_model}))
+        return JSONResponse({"label": mlguess["label"], "score": mlguess["percent"], "explanations": ["N/A"], "highlighted_body": body_text, "detection_method": "ML", "ml_model": ml_model})
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Analysis error: {e}")
 
