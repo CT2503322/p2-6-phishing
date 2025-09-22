@@ -41,8 +41,8 @@ def main():
             response = requests.post(PARSE_ENDPOINT, files=files)
             if response.status_code == 200:
                 parsed_data = response.json()
-                st.subheader("Parsed Email Data")
-                st.json(parsed_data)
+                # st.subheader("Parsed Email Data")
+                # st.json(parsed_data)
             else:
                 st.error(f"Parse Error: {response.status_code} - {response.text}")
                 return
@@ -65,7 +65,36 @@ def main():
             if analyze_response.status_code == 200:
                 analysis_data = analyze_response.json()
                 st.subheader("Analysis Results")
-                st.json(analysis_data)
+
+                # Display label and score in columns
+                col1, col2 = st.columns(2)
+                with col1:
+                    label = analysis_data.get('label', 'N/A').upper()
+                    score = analysis_data.get('score', 'N/A')
+                    if isinstance(score, (int, float)):
+                        label_display = f"Label: {label} ({score:.2f})"
+                    else:
+                        label_display = f"Label: {label}"
+                    st.write(label_display)
+                with col2:
+                    score = analysis_data.get('score', 'N/A')
+                    if isinstance(score, (int, float)):
+                        # Convert to percentage: assume 0-1 scale or 0-10 scale
+                        if score <= 1:
+                            score_percent = score * 100
+                        else:
+                            score_percent = min(100, score * 10)  # Convert from 1-10 scale to %
+                        st.metric("Phishing Likelihood", f"{score_percent:.0f}%")
+                        st.progress(score_percent / 100, "Likelihood of Phishing")
+                    else:
+                        st.write(f"**Likelihood:** {score}")
+
+                st.write("**Key Findings:**")
+                for expl in analysis_data['explanations']:
+                    st.write(f"• {expl}")
+
+                st.write("**Highlighted Email Content:**")
+                st.markdown(analysis_data['highlighted_body'], unsafe_allow_html=True)
             else:
                 st.error(f"Analysis Error: {analyze_response.status_code} - {analyze_response.text}")
 

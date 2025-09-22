@@ -35,3 +35,22 @@ def looks_credential_harvest(path, query):
     """
     combined = (path + '?' + query).lower()
     return 'login' in combined or 'password' in combined
+
+def check_urls(urls):
+    """Check URLs and return suspicious ones with reasons.
+    Returns list of (url, reasons) for suspicious URLs.
+    """
+    suspicious = []
+    for u in urls:
+        reasons = []
+        if anchor_text_domain_mismatch(u):
+            reasons.append("Domain not in trusted list")
+        if is_high_risk_tld(u.hostname):
+            reasons.append("High-risk TLD")
+        if is_shortener(u.hostname):
+            reasons.append("URL shortener")
+        if looks_credential_harvest(u.path, u.query):
+            reasons.append("Suggests credential harvesting")
+        if reasons:
+            suspicious.append((u, reasons))
+    return suspicious

@@ -1,6 +1,8 @@
 import sys
 import os
 import tempfile
+import html
+import re
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -16,6 +18,21 @@ app = FastAPI(
     docs_url="/docs",
     openapi_url="/openapi.json",
 )
+
+
+def highlight_body(body_text, matched_keywords, suspicious_urls):
+    """Highlight suspicious parts in the body with <mark> tags and tooltips."""
+    highlighted = html.escape(body_text)
+    # Highlight keywords
+    for kw in matched_keywords:
+        highlighted = re.sub(re.escape(kw), f'<mark title="Matched phishing keyword">\\0</mark>', highlighted, flags=re.IGNORECASE)
+    # Highlight suspicious URLs
+    for u, reasons in suspicious_urls:
+        url_str = u.geturl()
+        reason_str = "; ".join(reasons)
+        escaped_url = html.escape(url_str)
+        highlighted = highlighted.replace(escaped_url, f'<mark title="{reason_str}">{escaped_url}</mark>')
+    return highlighted
 
 
 @app.get("/health")
@@ -56,8 +73,9 @@ async def analyze_algorithmic(data: dict):
         body_text = parsed.get('body', '')
         urls = extract_urls(body_text)
         attachments = [parsed.get('attachments', '')]
-        label, score = score_email(headers, body_text, urls, attachments)
-        return JSONResponse({"label": label, "score": score, "detection_method": "algorithmic"})
+        label, score, explanations, matched_keywords, suspicious_urls = score_email(headers, body_text, urls, attachments)
+        highlighted_body = highlight_body(body_text, matched_keywords, suspicious_urls)
+        return JSONResponse({"label": label, "score": score, "explanations": explanations, "highlighted_body": highlighted_body, "detection_method": "algorithmic"})
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Analysis error: {e}")
 
