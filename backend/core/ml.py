@@ -21,7 +21,7 @@ def load_enron():
 # Loads the Kaggle training data, sorted into ham and spam.
 def load_training_data():
     data = []
-    base_dir = r"data\combinedlabelled"
+    base_dir = os.path.join(os.path.dirname(__file__), "..", "data", "combinedlabelled")
     for label in ["ham", "spam"]:
         folder = os.path.join(base_dir, label)
         for filename in os.listdir(folder):
