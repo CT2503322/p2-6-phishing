@@ -41,8 +41,8 @@ def main():
             response = requests.post(PARSE_ENDPOINT, files=files)
             if response.status_code == 200:
                 parsed_data = response.json()
-                # st.subheader("Parsed Email Data")
-                # st.json(parsed_data)
+                st.subheader("Parsed Email Data")
+                st.json(parsed_data)
             else:
                 st.error(f"Parse Error: {response.status_code} - {response.text}")
                 return
@@ -90,11 +90,15 @@ def main():
                         st.write(f"**Likelihood:** {score}")
 
                 st.write("**Key Findings:**")
-                for expl in analysis_data['explanations']:
-                    st.write(f"• {expl}")
+                if 'explanations' in analysis_data:
+                    for expl in analysis_data['explanations']:
+                        st.write(f"• {expl}")
+                else:
+                    st.write("*Explanations not available for this detection method.*")
 
-                st.write("**Highlighted Email Content:**")
-                st.markdown(analysis_data['highlighted_body'], unsafe_allow_html=True)
+                if 'highlighted_body' in analysis_data:
+                    st.write("**Highlighted Email Content:**")
+                    st.markdown(analysis_data['highlighted_body'], unsafe_allow_html=True)
             else:
                 st.error(f"Analysis Error: {analyze_response.status_code} - {analyze_response.text}")
 

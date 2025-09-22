@@ -82,7 +82,7 @@ async def analyze_algorithmic(data: dict):
 @app.post("/analyze/ml")
 async def analyze_ml(data: dict):
     parsed = data['parsed']
-    ml_model = data.get('ml_model', 'default_ml')
+    ml_model = data['ml_model']
     try:
         # Placeholder for ML detection - using algorithmic for now
         headers = {
@@ -98,14 +98,17 @@ async def analyze_ml(data: dict):
         urls = extract_urls(body_text)
         attachments = [parsed.get('attachments', '')]
 
-        if ml_model == 'default_ml':
-            label, score = score_email(headers, body_text, urls, attachments)  # Placeholder
-        elif ml_model == 'custom_ml':
-            label, score = score_email(headers, body_text, urls, attachments)  # Different logic here
+        if ml_model == 'default_ml': # Placeholder
+            label, score, explanations, matched_keywords, suspicious_urls = score_email(headers, body_text, urls, attachments)
+            highlighted_body = highlight_body(body_text, matched_keywords, suspicious_urls)
+        elif ml_model == 'custom_ml': # Different logic here
+            label, score, explanations, matched_keywords, suspicious_urls = score_email(headers, body_text, urls, attachments)
+            highlighted_body = highlight_body(body_text, matched_keywords, suspicious_urls)
         else:
-            label, score = score_email(headers, body_text, urls, attachments)
+            label, score, explanations, matched_keywords, suspicious_urls = score_email(headers, body_text, urls, attachments)
+            highlighted_body = highlight_body(body_text, matched_keywords, suspicious_urls)
 
-        return JSONResponse({"label": label, "score": score, "detection_method": "ML", "ml_model": ml_model})
+        return JSONResponse({"label": label, "score": score, "explanations": explanations, "highlighted_body": highlighted_body, "detection_method": "ML", "ml_model": ml_model})
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Analysis error: {e}")
 
@@ -126,7 +129,9 @@ async def analyze_llm(data: dict):
         body_text = parsed.get('body', '')
         urls = extract_urls(body_text)
         attachments = [parsed.get('attachments', '')]
-        label, score = score_email(headers, body_text, urls, attachments)  # Placeholder
-        return JSONResponse({"label": label, "score": score, "detection_method": "LLM"})
+        label, score, explanations, matched_keywords, suspicious_urls = score_email(headers, body_text, urls, attachments)
+        highlighted_body = highlight_body(body_text, matched_keywords, suspicious_urls)
+        return JSONResponse({"label": label, "score": score, "explanations": explanations, "highlighted_body": highlighted_body, "detection_method": "LLM"})
+
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Analysis error: {e}")
