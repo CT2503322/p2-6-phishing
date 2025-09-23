@@ -184,7 +184,7 @@ curl -X POST http://localhost:8000/analyze/ml \
 ```bash
 curl -X POST http://localhost:8000/analyze/llm \
   -H "Content-Type: application/json" \
-  -d '{"parsed": {...}, "model": "gpt-3.5-turbo"}'
+  -d '{"parsed": {...}, "model": "gpt-5-nano"}'
 ```
 
 **Response Example:**
