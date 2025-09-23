@@ -4,12 +4,14 @@ A full-stack web application for detecting phishing emails using machine learnin
 
 ## Features
 
-- **Email Analysis**: Upload and analyze `.eml` files for phishing indicators
-- **Keyword Detection**: Identifies suspicious keywords in email content
-- **Domain Whitelisting**: Checks against known safe domains
+- **Multi-Method Detection**: Supports algorithmic (rule-based), machine learning, and LLM-based phishing detection
+- **Email Analysis**: Upload and analyze `.eml` files or input email text for phishing indicators
+- **Advanced Checks**: Keyword detection, domain whitelisting, URL analysis, attachment heuristics, identity verification, lexical scoring, and routing validation
+- **Machine Learning**: Pre-trained models (Naive Bayes Complement/Multinomial, Logistic Regression) for statistical content-based classification using labeled email datasets
+- **LLM Analysis**: Integration with OpenAI GPT models for intelligent phishing detection using advanced natural language processing and contextual understanding
 - **Risk Scoring**: Provides risk scores and classification (SAFE/PHISHING/UNSCORED)
-- **REST API**: FastAPI backend with `/health` and `/analyze/eml` endpoints
-- **Modern Frontend**: Streamlit web application for easy email analysis
+- **REST API**: FastAPI backend with `/health`, `/parse/eml`, `/analyze/algorithmic`, `/analyze/ml`, and `/analyze/llm` endpoints
+- **Modern Frontend**: Streamlit web application with detection method selection for easy email analysis
 - **Automated Testing**: Comprehensive test suite with pytest and sample files
 
 See [TODO.md](TODO.md) for detailed development roadmap.
@@ -19,33 +21,47 @@ See [TODO.md](TODO.md) for detailed development roadmap.
 ```
 p2-6-phishing/
 ├── main.py                # Streamlit application launcher
-├── app.py                 # Main Streamlit application logic
+├── app.py                 # Main Streamlit application logic with detection method selection
+├── .env.local.example     # Environment variables example file
 ├── backend/               # FastAPI backend
 │   ├── api/               # API endpoints
-│   │   └── index.py       # Main API router with /health and /analyze/eml
-│   ├── core/              # Core analysis logic
-│   │   ├── keywords.py    # Keyword detection
-│   │   ├── score.py       # Risk scoring algorithm
-│   │   └── whitelist.py   # Domain whitelisting
-│   ├── data/              # Data files
-│   │   └── whitelist.txt  # Whitelisted domains
-│   ├── docs/              # Documentation
-│   │   ├── API.md         # API documentation
-│   │   ├── SETUP.md       # Setup guide
-│   │   └── TESTING.md     # Testing guide
-│   ├── ingestion/         # Email parsing utilities
-│   │   └── parse_eml.py   # EML file parsing
-│   └── tests/             # Test suite
-│       ├── test_api.py    # API tests
-│       ├── test_core.py   # Core logic tests
-│       ├── test_ingestion.py # Ingestion tests
-│       └── samples/       # Test sample files
-│           ├── tada.eml    # Sample email
-│           ├── tada-corrupted.eml # Corrupted email sample
-│           └── tada.pdf    # Sample PDF
-├── legacy/                # Legacy repositories
-│   ├── old-busyclasher-repo/ # Previous version
-│   └── old-p2-6-phishing-repo/ # Original version
+│   │   └── index.py       # Main API router with /health, /parse/eml, analyze endpoints
+│   ├── core/              # Core analysis logic modules
+│   │   ├── attachment_checks.py    # Attachment heuristic validation
+│   │   ├── helpers.py              # Utility functions
+│   │   ├── identity_checks.py      # Sender identity verification
+│   │   ├── lexical_score.py        # Lexical analysis scoring
+│   │   ├── ml.py                   # Machine learning utilities and training
+│   │   ├── routing_checks.py       # Email routing validation
+│   │   ├── scoring.py              # Combined risk scoring algorithm
+│   │   └── url_checks.py           # URL analysis and validation
+│   │   └── models/                 # Directory for model artifacts (empty in repo)
+│   ├── data/               # Data files and datasets
+│   │   ├── whitelist.txt           # Whitelisted domains
+│   │   └── combinedlabelled/       # Labeled email dataset for ML training
+│   │       ├── ham/                # Ham (safe) email samples
+│   │       └── spam/               # Spam (phishing) email samples
+│   │       └── README.txt          # Dataset documentation
+│   ├── docs/               # Documentation
+│   │   ├── API.md          # API documentation
+│   │   ├── SETUP.md        # Setup guide
+│   │   └── TESTING.md      # Testing guide
+│   ├── ingestion/          # Email parsing and cleaning utilities
+│   │   ├── clean_html.py           # HTML content cleaning
+│   │   ├── clean_zerowidth.py      # Zero-width character removal
+│   │   └── parse_eml.py           # EML file parsing
+│   ├── models/             # Pre-trained ML models (pickled)
+│   │   ├── logistic_regression.pkl
+│   │   ├── naivebayes_complement.pkl
+│   │   └── naivebayes_multinomial.pkl
+│   └── tests/              # Test suite
+│       ├── test_api.py     # API integration tests
+│       ├── test_core.py    # Core logic unit tests
+│       ├── test_ingestion.py       # Ingestion pipeline tests
+│       └── fixtures/               # Test fixture files
+│           ├── tada.eml             # Sample email file
+│           ├── tada-corrupted.eml   # Corrupted email sample
+│           └── tada.pdf             # Sample PDF attachment
 ├── .gitignore             # Git ignore rules
 ├── requirements.txt       # Python dependencies
 ├── TODO.md                # Development roadmap
@@ -56,7 +72,7 @@ p2-6-phishing/
 
 ### Prerequisites
 
-- Python 3.8+
+- Python 3.13+
 - Git
 
 ### Installation
@@ -129,26 +145,57 @@ To maintain code quality, you can use the following commands:
 - **Start backend**: `uvicorn backend.api.index:app --reload --port 8000`
 - **Start frontend**: `streamlit run main.py`
 
-## API Usage
+### Environment Variables
 
-### Analyze Email File
+Create a `.env.local` file in the project root and add the following variables (required for LLM detection):
 
-```bash
-curl -F "file=@sample.eml" http://localhost:8000/analyze/eml
+```
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-**Response:**
+## API Usage
+
+The API supports multiple detection methods. First, parse an email file, then analyze it using your preferred method.
+
+### Parse Email File
+
+```bash
+curl -X POST -F "file=@sample.eml" http://localhost:8000/parse/eml
+```
+
+### Analyze Algorithmic (Rule-based Detection)
+
+```bash
+curl -X POST http://localhost:8000/analyze/algorithmic \
+  -H "Content-Type: application/json" \
+  -d @parsed_email.json
+```
+
+### Analyze Machine Learning
+
+```bash
+curl -X POST http://localhost:8000/analyze/ml \
+  -H "Content-Type: application/json" \
+  -d '{"parsed": {...}, "ml_model": "logistic_regression"}'
+```
+
+### Analyze LLM
+
+```bash
+curl -X POST http://localhost:8000/analyze/llm \
+  -H "Content-Type: application/json" \
+  -d '{"parsed": {...}, "model": "gpt-3.5-turbo"}'
+```
+
+**Response Example:**
 
 ```json
 {
-  "risk": 0.4,
-  "label": "SAFE",
-  "reasons": ["KEYWORDS"],
-  "meta": {
-    "keywords": [...],
-    "headers": {...},
-    "subject": "..."
-  }
+  "label": "PHISHING",
+  "score": 0.85,
+  "explanations": ["Suspicious keyword: urgent", "Domain mismatch detected"],
+  "highlighted_body": "<mark title='Matched phishing keyword'>urgent</mark> action required...",
+  "detection_method": "algorithmic"
 }
 ```
 
@@ -168,18 +215,11 @@ source .venv/bin/activate  # Linux/macOS
 python -m pytest backend/tests/ -v
 ```
 
-The test suite includes sample `.eml` files in `backend/tests/samples/` for testing various scenarios including corrupted emails and different file formats.
+The test suite includes sample `.eml` files in `backend/tests/fixtures/` for testing various scenarios including corrupted emails and different file formats.
 
 ## Development Status
 
 This project is actively developed with a focus on expanding phishing detection capabilities. The current implementation provides a solid foundation with core analysis features, while the roadmap includes advanced security checks and performance optimizations.
-
-### Legacy Code
-The `legacy/` directory contains previous versions of the project:
-- `old-busyclasher-repo/`: Earlier iteration with different architecture
-- `old-p2-6-phishing-repo/`: Original implementation
-
-These are preserved for reference but are not actively maintained.
 
 ## Documentation
 
