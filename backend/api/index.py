@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from backend.core.url_checks import extract_urls
 from backend.ingestion.parse_eml import parse_eml
 from backend.core.scoring import score_email
-from backend.core.ml import train_nb_complement, train_nb_multinomial, train_logistic_regression, predict_phishing, load_training_data, load_model, save_model
+from backend.core.ml import train_nb_complement, train_nb_multinomial, train_logistic_regression,train_decision_tree, predict_phishing, load_training_data, load_model, save_model
 from fastapi import UploadFile, FastAPI, File, HTTPException, Body
 from fastapi.responses import JSONResponse
 
@@ -98,7 +98,8 @@ async def analyze_ml(data: dict):
         model_name_map = {
             "naivebayes_complement": ("naivebayes_complement", train_nb_complement),
             "naivebayes_multinomial": ("naivebayes_multinomial", train_nb_multinomial),
-            "logistic_regression": ("logistic_regression", train_logistic_regression)
+            "logistic_regression": ("logistic_regression", train_logistic_regression),
+            "decision_tree": ("decision_tree", train_decision_tree)
         }
 
         if ml_model in model_name_map:
