@@ -8,21 +8,48 @@ This document tracks the implementation status of features in the phishing detec
 
 - [x] Implement `parse_eml.py` - Basic email parsing (headers, subject, body)
 - [ ] Improve `parse_eml.py` - Add low-level MIME multipart parsing, attachment extraction, encoding handling
+- [x] Implement `clean_html.py` - HTML content cleaning utilities
+- [x] Implement `clean_zerowidth.py` - Zero-width character removal
 
-### Whitelist
+### Domain Whitelist
 
-- [x] Implement `whitelist.py` - Basic O(1) domain membership with simple normalization
-- [ ] Improve `whitelist.py` - Add subdomain support, wildcard matching, better domain validation
+- [x] Implement domain whitelisting - Basic domain membership checks
+- [ ] Improve domain whitelisting - Add subdomain support, wildcard matching, better validation
 
-### Keywords
+### Keyword Detection
 
-- [x] Implement `keywords.py` - Basic token scan with hardcoded keywords
-- [ ] Improve `keywords.py` - Make keywords configurable, add weights, better regex patterns, context awareness
+- [x] Implement keyword detection - Token scan with suspicious keywords
+- [ ] Improve keyword detection - Make keywords configurable, add weights, context awareness
+
+### Advanced Checks
+
+- [x] Implement `url_checks.py` - URL analysis and validation (href/text mismatch, IP literals, shorteners, punycode)
+- [x] Implement `attachment_checks.py` - Attachment heuristic validation
+- [x] Implement `identity_checks.py` - Sender identity verification
+- [x] Implement `routing_checks.py` - Email routing validation
+- [x] Implement `lexical_score.py` - Lexical analysis scoring
+- [x] Implement `scoring.py` - Combined risk scoring algorithm
 
 ### Score
 
-- [x] Implement `score.py` - Basic weighted aggregation for risk scoring
-- [ ] Improve `score.py` - Add more sophisticated scoring algorithms, confidence levels, detailed explanations
+- [x] Implement `scoring.py` - Combined risk scoring algorithm
+- [ ] Improve scoring algorithm - Add more sophisticated algorithms, confidence levels, detailed explanations
+
+### Machine Learning Detection
+
+- [x] Implement `ml.py` - Machine learning utilities and training pipeline
+- [x] Implement ML model training - Naive Bayes Complement/Multinomial, Logistic Regression
+- [x] Implement model persistence - Save/load trained models
+- [x] Integrate ML prediction into API (/analyze/ml endpoint)
+- [ ] Expand ML capabilities - Add more model types (SVM, Random Forest, etc.)
+- [ ] Improve ML training - Hyperparameter tuning, cross-validation
+
+### LLM Detection
+
+- [x] Implement `/analyze/llm` endpoint - OpenAI GPT integration for phishing analysis
+- [x] Add LLM prompt engineering - Detailed analysis prompts with specific indicators
+- [x] Integrate LLM responses into scoring system - Parse JSON responses, map to labels/scores
+- [ ] Optimize LLM usage - Caching, batch processing, prompt refinement
 
 ### Position Analysis
 
@@ -36,26 +63,11 @@ This document tracks the implementation status of features in the phishing detec
 - [ ] Add fuzzy matching for known phishing domains/brands
 - [ ] Optimize for performance with cutoff thresholds
 
-### URL Checks
-
-- [ ] Implement `url_checks.py` - href/text mismatch, IP literals, shorteners, punycode
-- [ ] Detect URL text/href discrepancies
-- [ ] Identify IP addresses in URLs
-- [ ] Handle URL shorteners
-- [ ] Check for punycode/IDN homograph attacks
-
 ### Reply-To vs From Mismatch
 
 - [ ] Implement `replyto_from.py` - Reply-To vs From mismatch rules
 - [ ] Compare Reply-To and From headers for inconsistencies
 - [ ] Flag suspicious mismatches
-
-### Attachment Heuristics
-
-- [ ] Implement `attachments.py` - attachment heuristics (ext, double-ext, macros)
-- [ ] Check file extensions for suspicious patterns
-- [ ] Detect double extensions (e.g., .pdf.exe)
-- [ ] Identify macro-enabled documents
 
 ### Unicode/Confusables
 

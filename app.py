@@ -43,7 +43,7 @@ def main():
     if detection_method == "LLM":
         llm_model = st.selectbox(
             "Select LLM Model",
-            options=["gpt-3.5-turbo", "gpt-4", "gpt-4-turbo"],
+            options=["gpt-5-nano", "gpt-4.1-nano", "gpt-4o-mini"],
             index=0,  # Default to first option
             help="Choose the specific LLM model to use",
         )

@@ -33,13 +33,20 @@ def highlight_body(body_text, matched_keywords, suspicious_urls):
     highlighted = html.escape(body_text)
     # Highlight keywords
     for kw in matched_keywords:
-        highlighted = re.sub(re.escape(kw), f'<mark title="Matched phishing keyword">\\0</mark>', highlighted, flags=re.IGNORECASE)
+        highlighted = re.sub(
+            re.escape(kw),
+            f'<mark title="Matched phishing keyword">\\0</mark>',
+            highlighted,
+            flags=re.IGNORECASE,
+        )
     # Highlight suspicious URLs
     for u, reasons in suspicious_urls:
         url_str = u.geturl()
         reason_str = "; ".join(reasons)
         escaped_url = html.escape(url_str)
-        highlighted = highlighted.replace(escaped_url, f'<mark title="{reason_str}">{escaped_url}</mark>')
+        highlighted = highlighted.replace(
+            escaped_url, f'<mark title="{reason_str}">{escaped_url}</mark>'
+        )
     return highlighted
 
 
@@ -54,7 +61,9 @@ async def parse_eml_endpoint(file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Only .eml files are supported")
     raw = await file.read()
     try:
-        with tempfile.NamedTemporaryFile(mode='w+b', delete=False, suffix='.eml') as tmp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w+b", delete=False, suffix=".eml"
+        ) as tmp_file:
             tmp_file.write(raw)
             tmp_path = tmp_file.name
 
@@ -67,32 +76,43 @@ async def parse_eml_endpoint(file: UploadFile = File(...)):
 
 @app.post("/analyze/algorithmic")
 async def analyze_algorithmic(data: dict):
-    parsed = data['parsed']
+    parsed = data["parsed"]
     try:
         headers = {
-            'from': parsed.get('from', ''),
-            'reply-to': parsed.get('reply-to', ''),
-            'return-path': parsed.get('return-path', ''),
-            'subject': parsed.get('subject', ''),
-            'message-id': parsed.get('message_id', ''),
-            'received': parsed.get('received', '')
+            "from": parsed.get("from", ""),
+            "reply-to": parsed.get("reply-to", ""),
+            "return-path": parsed.get("return-path", ""),
+            "subject": parsed.get("subject", ""),
+            "message-id": parsed.get("message_id", ""),
+            "received": parsed.get("received", ""),
         }
 
-        body_text = parsed.get('body', '')
+        body_text = parsed.get("body", "")
         urls = extract_urls(body_text)
-        attachments = [parsed.get('attachments', '')]
-        label, score, explanations, matched_keywords, suspicious_urls = score_email(headers, body_text, urls, attachments)
+        attachments = [parsed.get("attachments", "")]
+        label, score, explanations, matched_keywords, suspicious_urls = score_email(
+            headers, body_text, urls, attachments
+        )
         highlighted_body = highlight_body(body_text, matched_keywords, suspicious_urls)
-        return JSONResponse({"label": label, "score": score, "explanations": explanations, "highlighted_body": highlighted_body, "detection_method": "algorithmic"})
+        return JSONResponse(
+            {
+                "label": label,
+                "score": score,
+                "explanations": explanations,
+                "highlighted_body": highlighted_body,
+                "detection_method": "algorithmic",
+            }
+        )
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Analysis error: {e}")
 
+
 @app.post("/analyze/ml")
 async def analyze_ml(data: dict):
-    parsed = data['parsed']
-    ml_model = data['ml_model']
+    parsed = data["parsed"]
+    ml_model = data["ml_model"]
     try:
-        body_text = parsed.get('body', '')
+        body_text = parsed.get("body", "")
 
         model = None
         model_name_map = {
@@ -114,30 +134,45 @@ async def analyze_ml(data: dict):
 
         mlguess = predict_phishing(body_text, model)
 
-        return JSONResponse({"label": mlguess["label"], "score": mlguess["percent"], "explanations": ["N/A"], "highlighted_body": body_text, "detection_method": "ML", "ml_model": ml_model})
+        return JSONResponse(
+            {
+                "label": mlguess["label"],
+                "score": mlguess["percent"],
+                "explanations": ["N/A"],
+                "highlighted_body": body_text,
+                "detection_method": "ML",
+                "ml_model": ml_model,
+            }
+        )
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"Analysis error: {e}")
 
+
 @app.post("/analyze/llm")
 async def analyze_llm(data: dict):
-    parsed = data['parsed']
-    model = data.get('model', 'gpt-3.5-turbo')
-    supported_models = ['gpt-3.5-turbo', 'gpt-4', 'gpt-4-turbo']
+    parsed = data["parsed"]
+    model = data.get("model", "gpt-5-nano")
+    supported_models = ["gpt-5-nano", "gpt-4.1-nano", "gpt-4o-mini"]
     if model not in supported_models:
-        raise HTTPException(status_code=400, detail=f"Unsupported model: {model}. Supported: {supported_models}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported model: {model}. Supported: {supported_models}",
+        )
 
-    api_key = os.getenv('OPENAI_API_KEY')
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise HTTPException(status_code=500, detail="OPENAI_API_KEY environment variable not set")
+        raise HTTPException(
+            status_code=500, detail="OPENAI_API_KEY environment variable not set"
+        )
 
     try:
         client = OpenAI(api_key=api_key)
 
         # Extract email details
-        email_from = parsed.get('from', '')
-        email_subject = parsed.get('subject', '')
-        email_body = parsed.get('body', '')
-        email_attachments = parsed.get('attachments', '')
+        email_from = parsed.get("from", "")
+        email_subject = parsed.get("subject", "")
+        email_body = parsed.get("body", "")
+        email_attachments = parsed.get("attachments", "")
         email_urls = extract_urls(email_body)
 
         # Craft prompt for phishing analysis
@@ -173,9 +208,7 @@ Be precise and focus on concrete evidence from the email."""
 
         # Call OpenAI API with streaming
         response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "system", "content": prompt}],
-            stream=True
+            model=model, messages=[{"role": "system", "content": prompt}], stream=True
         )
 
         # Collect streaming response
@@ -187,15 +220,19 @@ Be precise and focus on concrete evidence from the email."""
         # Parse the JSON response
         try:
             llm_analysis = json.loads(full_response.strip())
-            probability = llm_analysis.get('probability', 0)
-            indicators = llm_analysis.get('indicators', [])
-            reasoning = llm_analysis.get('reasoning', '')
+            probability = llm_analysis.get("probability", 0)
+            indicators = llm_analysis.get("indicators", [])
+            reasoning = llm_analysis.get("reasoning", "")
         except json.JSONDecodeError:
-            raise HTTPException(status_code=422, detail=f"Failed to parse LLM response: {full_response}")
+            raise HTTPException(
+                status_code=422, detail=f"Failed to parse LLM response: {full_response}"
+            )
 
         # Determine label based on probability
         label = "phishing" if probability > 50 else "safe"
-        score = probability / 100.0  # Convert to 0-1 for consistency with other endpoints
+        score = (
+            probability / 100.0
+        )  # Convert to 0-1 for consistency with other endpoints
 
         # Create explanations combining indicators and reasoning
         explanations = []
@@ -211,7 +248,7 @@ Be precise and focus on concrete evidence from the email."""
         # Find keywords from indicators that appear in body
         body_lower = email_body.lower()
         for ind in indicators:
-            possible_keywords = re.findall(r'\b[^\s]+\b', ind.lower())
+            possible_keywords = re.findall(r"\b[^\s]+\b", ind.lower())
             for kw in possible_keywords:
                 if kw in body_lower:
                     matched_keywords.append(kw)
@@ -223,13 +260,15 @@ Be precise and focus on concrete evidence from the email."""
                 if url_str.lower() in ind.lower():
                     suspicious_urls.append((url, [f"LLM-detected: {ind}"]))
 
-        return JSONResponse({
-            "label": label,
-            "score": score,
-            "explanations": explanations,
-            "detection_method": "LLM",
-            "llm_model": model
-        })
+        return JSONResponse(
+            {
+                "label": label,
+                "score": score,
+                "explanations": explanations,
+                "detection_method": "LLM",
+                "llm_model": model,
+            }
+        )
 
     except HTTPException:
         raise
