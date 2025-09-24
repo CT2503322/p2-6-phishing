@@ -3,29 +3,27 @@ import requests
 import tempfile
 import os
 import hashlib
+import pandas as pd
 from typing import Dict, Any, Optional
 
 # API Configuration
 API_BASE_URL = "http://localhost:8000"
 PARSE_ENDPOINT = f"{API_BASE_URL}/parse/eml"
 
-
 def main():
     """Main Streamlit application."""
     # Configure page
     st.set_page_config(page_title="Phishing Email Analyzer", layout="wide")
 
-    st.image("img/phisherman_logo.png", width=150)  # Replace with actual logo URL
+    st.image("img/phisherman_logo.png", width=150) 
     st.title("Phishingman - Your personalized Email Analyzer")
 
-    if "analysis_requested" not in st.session_state:
-        st.session_state["analysis_requested"] = False
-    if "analysis_result" not in st.session_state:
-        st.session_state["analysis_result"] = None
-    if "input_signature" not in st.session_state:
-        st.session_state["input_signature"] = None
-    if "last_analysis_signature" not in st.session_state:
-        st.session_state["last_analysis_signature"] = None
+    # Session defaults
+    st.session_state.setdefault("analysis_requested", False)
+    st.session_state.setdefault("analysis_result", None)           
+    st.session_state.setdefault("input_signature", None)
+    st.session_state.setdefault("last_analysis_signature", None)
+    st.session_state.setdefault("multi_analysis_results", {})      
 
     # Detection method selection
     detection_method = st.selectbox(
@@ -55,45 +53,87 @@ def main():
         llm_model = st.selectbox(
             "Select LLM Model",
             options=["gpt-5-nano", "gpt-4.1-nano", "gpt-4o-mini"],
-            index=0,  # Default to first option
+            index=0,
             help="Choose the specific LLM model to use",
         )
 
+    # ---------- Input method ----------
     input_method = st.radio(
-        "Choose input method:", ["Upload .eml file", "Enter email body text"]
+        "Choose input method:", ["Upload .eml files", "Enter email body text"]
     )
 
-    uploaded_file = None
+    uploaded_files = []
     text_body = ""
-    parsed_data = None
+    parsed_text_data = None
     input_data_signature = "no-input"
 
-    if input_method == "Upload .eml file":
-        uploaded_file = st.file_uploader("Upload .eml file", type=["eml"])
-        if uploaded_file is not None:
-            file_size = getattr(uploaded_file, "size", None)
-            if file_size is None:
-                file_size = len(uploaded_file.getvalue())
-            input_data_signature = f"file:{uploaded_file.name}:{file_size}"
-            # Parse the email
-            with st.spinner("Parsing email..."):
-                files = {
-                    "file": (
-                        uploaded_file.name,
-                        uploaded_file.getvalue(),
-                        "application/octet-stream",
-                    )
-                }
-                response = requests.post(PARSE_ENDPOINT, files=files)
-                if response.status_code == 200:
-                    parsed_data = response.json()
-                    st.subheader("Parsed Email Data")
-                    st.json(parsed_data)
-                else:
-                    st.session_state["analysis_result"] = None
-                    st.session_state["last_analysis_signature"] = None
-                    st.error(f"Parse Error: {response.status_code} - {response.text}")
-                    return
+    # ---------- Helpers ----------
+    def compute_score_percent(score):
+        if isinstance(score, (int, float)):
+            if score <= 1:
+                return max(0.0, min(1.0, float(score))) * 100.0
+            return min(100.0, float(score) * 10.0)
+        return float(score)
+        
+
+    def parse_eml_file(one_file):
+        # Returns (parsed_data | None, error_msg | None)
+        try:
+            files = {
+                "file": (
+                    one_file.name,
+                    one_file.getvalue(),
+                    "application/octet-stream",
+                )
+            }
+            resp = requests.post(PARSE_ENDPOINT, files=files)
+            if resp.status_code == 200:
+                return resp.json(), None
+            else:
+                return None, f"Parse Error: {resp.status_code} - {resp.text}"
+        except Exception as e:
+            return None, f"Parse Exception: {e}"
+
+    def analyze_parsed(parsed_data):
+        # Uses selected detection method and models
+        if detection_method == "algorithmic":
+            analyze_endpoint = f"{API_BASE_URL}/analyze/algorithmic"
+        elif detection_method == "ML":
+            analyze_endpoint = f"{API_BASE_URL}/analyze/ml"
+        elif detection_method == "LLM":
+            analyze_endpoint = f"{API_BASE_URL}/analyze/llm"
+        else:
+            return None, "Unknown detection method"
+
+        payload = {"parsed": parsed_data}
+        if ml_model:
+            payload["ml_model"] = ml_model
+        if llm_model:
+            payload["model"] = llm_model
+
+        try:
+            resp = requests.post(analyze_endpoint, json=payload)
+            if resp.status_code == 200:
+                return resp.json(), None
+            else:
+                return None, f"Analysis Error: {resp.status_code} - {resp.text}"
+        except Exception as e:
+            return None, f"Analysis Exception: {e}"
+
+
+    if input_method == "Upload .eml files":
+        uploaded_files = st.file_uploader(
+            "Upload one or more .eml files", type=["eml"], accept_multiple_files=True
+        )
+        if uploaded_files:
+            sig_parts = []
+            for f in uploaded_files:
+                size = getattr(f, "size", None) or len(f.getvalue())
+                sig_parts.append(f"{f.name}:{size}")
+            sig_parts.sort()
+            input_data_signature = "files:" + "|".join(sig_parts)
+
+    
     else:
         text_body = st.text_area(
             "Enter email body text:",
@@ -104,8 +144,7 @@ def main():
         if cleaned_text:
             text_hash = hashlib.sha256(cleaned_text.encode("utf-8")).hexdigest()
             input_data_signature = f"text:{text_hash}"
-            # Create parsed data for text input (body only)
-            parsed_data = {
+            parsed_text_data = {
                 "from": "",
                 "subject": "",
                 "body": text_body,
@@ -133,94 +172,155 @@ def main():
         st.session_state["input_signature"] = input_signature
         st.session_state["analysis_requested"] = False
         st.session_state["analysis_result"] = None
+        st.session_state["multi_analysis_results"] = {}
         st.session_state["last_analysis_signature"] = None
 
-    if parsed_data is not None:
-        analyze_clicked = st.button("Run Analysis", type="primary")
-        if analyze_clicked:
-            st.session_state["analysis_requested"] = True
+    analyze_clicked = st.button("Run Analysis", type="primary")
+    if analyze_clicked:
+        st.session_state["analysis_requested"] = True
 
-        analysis_data = None
-        if (
-            st.session_state["analysis_result"] is not None
-            and st.session_state["last_analysis_signature"] == input_signature
-        ):
-            analysis_data = st.session_state["analysis_result"]
+    if st.session_state["analysis_requested"]:
+        if input_method == "Upload .eml files" and uploaded_files:
+            results = {}
+            errors = {}
+            with st.spinner(f"Analyzing {len(uploaded_files)} file(s) using {detection_method} detection..."):
+                for f in uploaded_files:
+                    with st.status(f"Processing **{f.name}**", expanded=False) as status:
+                        parsed, perr = parse_eml_file(f)
+                        if perr:
+                            errors[f.name] = perr
+                            status.update(label=f"❌ {f.name}: parse failed", state="error")
+                            continue
 
-        if st.session_state["analysis_requested"]:
-            with st.spinner(
-                f"Analyzing for phishing using {detection_method} detection..."
-            ):
-                if detection_method == "algorithmic":
-                    analyze_endpoint = f"{API_BASE_URL}/analyze/algorithmic"
-                elif detection_method == "ML":
-                    analyze_endpoint = f"{API_BASE_URL}/analyze/ml"
-                elif detection_method == "LLM":
-                    analyze_endpoint = f"{API_BASE_URL}/analyze/llm"
-                else:
-                    st.error("Unknown detection method")
-                    st.session_state["analysis_requested"] = False
-                    return
-                request_data = {"parsed": parsed_data}
-                if ml_model:
-                    request_data["ml_model"] = ml_model
-                if llm_model:
-                    request_data["model"] = llm_model
-                analyze_response = requests.post(analyze_endpoint, json=request_data)
-                if analyze_response.status_code == 200:
-                    analysis_data = analyze_response.json()
-                    st.session_state["analysis_result"] = analysis_data
-                    st.session_state["last_analysis_signature"] = input_signature
-                else:
+                        analysis, aerr = analyze_parsed(parsed)
+                        if aerr:
+                            errors[f.name] = aerr
+                            status.update(label=f"❌ {f.name}: analysis failed", state="error")
+                            continue
+
+                        results[f.name] = {"parsed": parsed, "analysis": analysis}
+                        status.update(label=f"✅ {f.name}: done", state="complete")
+
+            st.session_state["multi_analysis_results"] = results
+            st.session_state["last_analysis_signature"] = input_signature
+            st.session_state["analysis_requested"] = False
+
+            if errors:
+                with st.expander("Errors (click to expand)"):
+                    for fn, msg in errors.items():
+                        st.error(f"{fn}: {msg}")
+
+        
+        elif parsed_text_data is not None:
+            with st.spinner(f"Analyzing for phishing using {detection_method} detection..."):
+                analysis, err = analyze_parsed(parsed_text_data)
+                if err:
                     st.session_state["analysis_result"] = None
                     st.session_state["last_analysis_signature"] = None
-                    st.error(
-                        f"Analysis Error: {analyze_response.status_code} - {analyze_response.text}"
-                    )
-                st.session_state["analysis_requested"] = False
-
-        if (
-            st.session_state["analysis_result"] is not None
-            and st.session_state["last_analysis_signature"] == input_signature
-        ):
-            analysis_data = st.session_state["analysis_result"]
-
-        if analysis_data:
-            st.subheader("Analysis Results")
-
-            # Display label and score in columns
-            col1, col2 = st.columns(2)
-            with col1:
-                label = analysis_data.get("label", "N/A").upper()
-                score = analysis_data.get("score", "N/A")
-                if isinstance(score, (int, float)):
-                    label_display = f"Label: {label} ({score:.2f})"
+                    st.error(err)
                 else:
-                    label_display = f"Label: {label}"
-                st.write(label_display)
-            with col2:
-                score = analysis_data.get("score", "N/A")
-                if isinstance(score, (int, float)):
-                    # Convert to percentage: assume 0-1 scale or 0-10 scale
-                    if score <= 1:
-                        score_percent = score * 100
+                    st.session_state["analysis_result"] = analysis
+                    st.session_state["last_analysis_signature"] = input_signature
+            st.session_state["analysis_requested"] = False
+        else:
+            st.session_state["analysis_requested"] = False
+            st.warning("No input to analyze yet.")
+
+    
+    if (
+        input_method == "Upload .eml files"
+        and st.session_state["multi_analysis_results"]
+        and st.session_state["last_analysis_signature"] == input_signature
+    ):
+        st.subheader("Analysis Summary")
+
+        rows = []
+        for fname, bundle in st.session_state["multi_analysis_results"].items():
+            analysis = bundle.get("analysis", {}) or {}
+            label = (analysis.get("label") or "N/A").upper()
+            score = analysis.get("score", None)
+            pct = compute_score_percent(score)
+            rows.append({
+                "File Name": fname,
+                "Legitimate / Phishing": label,
+                "Phishing Likelihood (%)": None if pct is None else round(pct, 0),
+            })
+
+        df = pd.DataFrame(rows).sort_values(by="File Name").reset_index(drop=True)
+        st.dataframe(df, width='stretch')
+
+        st.caption("Click a file below to view detailed findings.")
+        for fname, bundle in sorted(st.session_state["multi_analysis_results"].items()):
+            analysis = bundle.get("analysis", {}) or {}
+            parsed = bundle.get("parsed", {}) or {}
+
+            with st.expander(fname):
+                col1, col2 = st.columns(2)
+                with col1:
+                    label = (analysis.get("label") or "N/A").upper()
+                    score = analysis.get("score", "N/A")
+                    if isinstance(score, (int, float)):
+                        st.write(f"**Label:** {label} ({score:.2f})")
                     else:
-                        score_percent = min(100, score * 10)  # Convert from 1-10 scale to %
-                    st.metric("Phishing Likelihood", f"{score_percent:.0f}%")
-                    st.progress(score_percent / 100, "Likelihood of Phishing")
+                        st.write(f"**Label:** {label}")
+
+                with col2:
+                    pct = compute_score_percent(analysis.get("score", "N/A"))
+                    if pct is not None:
+                        st.metric("Phishing Likelihood", f"{pct:.0f}%")
+                        st.progress(pct / 100, "Likelihood of Phishing")
+                    else:
+                        st.write(f"**Likelihood:** {analysis.get('score', 'N/A')}")
+
+                st.write("**Key Findings:**")
+                if "explanations" in analysis and analysis["explanations"]:
+                    for expl in analysis["explanations"]:
+                        st.write(f"- {expl}")
                 else:
-                    st.write(f"**Likelihood:** {score}")
+                    st.write("*Explanations not available for this detection method.*")
 
-            st.write("**Key Findings:**")
-            if "explanations" in analysis_data:
-                for expl in analysis_data["explanations"]:
-                    st.write(f"- {expl}")
+                if "highlighted_body" in analysis and analysis["highlighted_body"]:
+                    st.write("**Highlighted Email Content:**")
+                    st.markdown(analysis["highlighted_body"], unsafe_allow_html=True)
+
+                with st.expander("Parsed Email Data (raw JSON)"):
+                    st.json(parsed)
+
+
+    elif (
+        st.session_state["analysis_result"] is not None
+        and st.session_state["last_analysis_signature"] == input_signature
+        and parsed_text_data is not None
+    ):
+        analysis_data = st.session_state["analysis_result"]
+        st.subheader("Analysis Results")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            label = (analysis_data.get("label", "N/A") or "N/A").upper()
+            score = analysis_data.get("score", "N/A")
+            if isinstance(score, (int, float)):
+                st.write(f"**Label:** {label} ({score:.2f})")
             else:
-                st.write("*Explanations not available for this detection method.*")
+                st.write(f"**Label:** {label}")
+        with col2:
+            pct = compute_score_percent(analysis_data.get("score", "N/A"))
+            if pct is not None:
+                st.metric("Phishing Likelihood", f"{pct:.0f}%")
+                st.progress(pct / 100, "Likelihood of Phishing")
+            else:
+                st.write(f"**Likelihood:** {analysis_data.get('score', 'N/A')}")
 
-            if "highlighted_body" in analysis_data:
-                st.write("**Highlighted Email Content:**")
-                st.markdown(analysis_data["highlighted_body"], unsafe_allow_html=True)
+        st.write("**Key Findings:**")
+        if "explanations" in analysis_data:
+            for expl in analysis_data["explanations"]:
+                st.write(f"- {expl}")
+        else:
+            st.write("*Explanations not available for this detection method.*")
+
+        if "highlighted_body" in analysis_data:
+            st.write("**Highlighted Email Content:**")
+            st.markdown(analysis_data["highlighted_body"], unsafe_allow_html=True)
 
 
 if __name__ == "__main__":
