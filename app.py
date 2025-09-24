@@ -311,7 +311,7 @@ def main():
         rows = []
         for fname, bundle in st.session_state["multi_analysis_results"].items():
             analysis = bundle.get("analysis", {}) or {}
-            label = (analysis.get("label") or "N/A").upper()
+            label = (analysis.get("label") or "N/A")
             score = analysis.get("score", None)
             pct = compute_score_percent(score)
             rows.append({
