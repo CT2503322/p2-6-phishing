@@ -8,6 +8,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.naive_bayes import MultinomialNB, ComplementNB
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
+from sklearn.tree import DecisionTreeClassifier
 
 """
 Loads data depending on what is needed
@@ -87,6 +88,31 @@ def train_logistic_regression(data):
     clf.fit(X_train, y_train)
     return clf
 
+# Trains Decision Tree model on data provided.
+def train_decision_tree(data):
+    texts  = [d["text"] for d in data]
+    labels = [d["label"] for d in data]
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        texts, labels, test_size=0.2, random_state=42, stratify=labels
+    )
+
+    clf = make_pipeline(
+        TfidfVectorizer(ngram_range=(1, 1), min_df=5),
+        DecisionTreeClassifier(
+            random_state=42, 
+            max_depth=10, 
+            min_samples_split=5, 
+            min_samples_leaf=5, 
+            class_weight='balanced'
+        )
+    )
+
+    clf.fit(X_train, y_train)
+    #y_pred = clf.predict(X_test)
+    #print(classification_report(y_test, y_pred))
+    return clf
+
 """
 Model persistence functions
 """
@@ -136,11 +162,13 @@ if __name__ == "__main__":
     nbc_model = train_nb_complement(datatest)
     nbm_model = train_nb_multinomial(datatest)
     lr_model = train_logistic_regression(datatest)
+    dt_model = train_decision_tree(datatest)
 
     # Save the models
     save_model(nbc_model, "naivebayes_complement")
     save_model(nbm_model, "naivebayes_multinomial")
     save_model(lr_model, "logistic_regression")
+    save_model(dt_model, "decision_tree")
 
     """
     Basic test case for prediction function, prints out the results of all 3 models for comparison.
@@ -149,5 +177,6 @@ if __name__ == "__main__":
     output_nbc = predict_phishing("Congratulations! You've won a lottery of $1,000,000. Click here to claim your prize.", nbc_model)
     output_nbm = predict_phishing("Congratulations! You've won a lottery of $1,000,000. Click here to claim your prize.", nbm_model)
     output_lr = predict_phishing("Congratulations! You've won a lottery of $1,000,000. Click here to claim your prize.", lr_model)
+    output_dt = predict_phishing("Congratulations! You've won a lottery of $1,000,000. Click here to claim your prize.", dt_model)
 
-    print(f"Naive Bayes (ComplementNB): {output_nbc["label"]}, {output_nbc["percent"]}% \nNaive Bayes (MultinomialNB): {output_nbm["label"]}, {output_nbm["percent"]}% \nLogistic Regression: {output_lr["label"]}, {output_lr["percent"]}%")
+    print(f"Naive Bayes (ComplementNB): {output_nbc["label"]}, {output_nbc["percent"]}% \nNaive Bayes (MultinomialNB): {output_nbm["label"]}, {output_nbm["percent"]}% \nLogistic Regression: {output_lr["label"]}, {output_lr["percent"]}% \nDecision Tree: {output_dt['label']}, {output_dt['percent']}%")
