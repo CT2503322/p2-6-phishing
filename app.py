@@ -14,7 +14,8 @@ def main():
     # Configure page
     st.set_page_config(page_title="Phishing Email Analyzer", layout="wide")
 
-    st.title("Phishing Email Analyzer")
+    st.image("img/phisherman_logo.png", width=150)  # Replace with actual logo URL
+    st.title("Phishingman - Your personalized Email Analyzer")
 
     # Detection method selection
     detection_method = st.selectbox(
