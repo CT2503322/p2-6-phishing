@@ -116,8 +116,7 @@ def main():
                 "naivebayes_complement",
                 "naivebayes_multinomial",
                 "logistic_regression",
-                "decision_tree",
-                "naive bayes",
+                "decision_tree"
             ],
             help="Choose the specific ML model to use",
         )
