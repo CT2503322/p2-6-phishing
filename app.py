@@ -5,6 +5,8 @@ import os
 import hashlib
 import pandas as pd
 from typing import Dict, Any, Optional
+import base64
+import random
 
 # API Configuration
 API_BASE_URL = "http://localhost:8000"
@@ -15,8 +17,81 @@ def main():
     # Configure page
     st.set_page_config(page_title="Phishing Email Analyzer", layout="wide")
 
-    st.image("img/phisherman_logo.png", width=150) 
-    st.title("Phishingman - Your personalized Email Analyzer")
+    def get_base64_of_bin_file(bin_file):
+        with open(bin_file, 'rb') as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+
+    phisherman_logo = get_base64_of_bin_file("img/phisherman_logo.png")
+
+    taglines = [
+        "Powered by caffeine and suspicion",
+        "We catch em so you do not click em",
+        "Reeling in shady emails since day one"
+    ]
+    selected_tagline = random.choice(taglines)
+
+    # Custom CSS
+    st.markdown("""
+        <style>
+            .banner {
+                display: flex;
+                justify-content: center;   /* centers whole content */
+                align-items: center;
+                background-color: #1E2A38; /* dark grey-blue */
+                color: white;
+                padding: 1.5rem 2rem;
+                border-radius: 12px;
+                margin-bottom: 20px;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+                text-align: left;
+            }
+            .banner img {
+                height: 100px;
+                width: 100px;
+                border-radius: 50%;
+                background-color: white;
+                padding: 7px;
+                object-fit: contain;
+                margin-right: 15px;
+            }
+            .banner-text {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                text-align: left;
+            }
+            .banner h1 {
+                font-size: 3rem;
+                font-weight: 700;
+                margin: 0;
+            }
+            .tagline {
+                font-size: 1rem;
+                font-weight: 400;
+                margin-top: 5px;
+                color: #cfd8dc;
+            }
+            
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    
+    # Banner HTML
+    st.markdown(f"""
+    <div class="banner">
+        <img src="data:image/png;base64,{phisherman_logo}" alt="logo">
+        <div class="banner-text">
+        <h1>Phisherman</h1>
+        <div class="tagline">{selected_tagline}</div>
+    </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+    #st.image("img/phisherman_logo.png", width=150) 
+    st.title("Welcome to your personalised phishing detector!\n")
 
     # Session defaults
     st.session_state.setdefault("analysis_requested", False)
