@@ -78,8 +78,8 @@ This document tracks the implementation status of features in the phishing detec
 
 ### Authentication Checks
 
-- [ ] Create `auth_checks/` directory
-- [ ] Implement `auth_headers.py` - parse Authentication-Results, Received-SPF
+- [x] Create `auth_checks/` directory
+- [x] Implement `auth_headers.py` - parse Authentication-Results, Received-SPF
 - [ ] Implement `dkim_verify.py` (OPTIONAL) - live DKIM verify using dkimpy + DNS
 - [ ] Implement `spf_check.py` (OPTIONAL) - simplified SPF check via DNS TXT
 - [ ] Implement `dmarc_check.py` (OPTIONAL) - DMARC policy & alignment via DNS TXT
@@ -140,9 +140,9 @@ This document tracks the implementation status of features in the phishing detec
 
 ### Known Brands
 
-- [ ] Create `data/known_brands.txt`
-- [ ] List legitimate brand names and domains
-- [ ] Use for brand impersonation detection
+- [x] Create `data/known_brands.txt`
+- [x] List legitimate brand names and domains
+- [x] Use for brand impersonation detection
 
 ## Testing
 
@@ -161,7 +161,7 @@ This document tracks the implementation status of features in the phishing detec
 - [ ] Implement `test_replyto_from.py`
 - [ ] Implement `test_attachments.py`
 - [ ] Implement `test_confusables.py`
-- [ ] Implement `test_auth_headers.py`
+- [x] Implement `test_auth_headers.py`
 - [ ] Implement `test_explain.py`
 - [ ] Implement `test_text.py`
 - [ ] Implement `test_domains.py`

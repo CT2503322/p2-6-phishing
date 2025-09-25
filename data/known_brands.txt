@@ -1,0 +1,30 @@
+# brand|primary domain[,additional domains]
+PayPal|paypal.com
+Apple|apple.com
+Amazon|amazon.com
+Microsoft|microsoft.com
+Google|google.com
+Netflix|netflix.com
+Bank of America|bankofamerica.com
+Chase|chase.com
+Wells Fargo|wellsfargo.com
+American Express|americanexpress.com
+Facebook|facebook.com
+Instagram|instagram.com
+LinkedIn|linkedin.com
+Dropbox|dropbox.com
+DocuSign|docusign.net
+Intuit|intuit.com
+QuickBooks|quickbooks.intuit.com
+Square|squareup.com
+Stripe|stripe.com
+FedEx|fedex.com
+UPS|ups.com
+USPS|usps.com
+AT&T|att.com
+Verizon|verizon.com
+Adobe|adobe.com
+Zoom|zoom.us
+Slack|slack.com
+GitHub|github.com
+
