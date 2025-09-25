@@ -84,12 +84,7 @@ def train_logistic_regression(data):
 
 # Trains Decision Tree model on data provided.
 def train_decision_tree(data):
-    texts  = [d["text"] for d in data]
-    labels = [d["label"] for d in data]
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        texts, labels, test_size=0.2, random_state=42, stratify=labels
-    )
+    X_train, X_test, y_train, y_test = prepare_data_split(data)
 
     clf = make_pipeline(
         TfidfVectorizer(ngram_range=(1, 1), min_df=5),
