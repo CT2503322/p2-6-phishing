@@ -148,7 +148,7 @@ def predict_phishing(text, model):
     classes = model.classes_.tolist()
     label = model.predict([text])[0]
     prob = proba[classes.index(label)]
-    label_str = "Phishing" if label == "spam" else "Legit"
+    label_str = "Phishing" if label == "spam" else "Legitimate"
     return {"label": label_str, "percent": f"{prob*100:.2f}"}
 
 if __name__ == "__main__":
