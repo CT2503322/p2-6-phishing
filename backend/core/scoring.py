@@ -1,3 +1,4 @@
+from backend.core.explain import build_explanations
 from backend.core.lexical_score import lexical_score
 from backend.core.attachment_checks import archive_name_suspicious, is_dangerous
 from backend.core.helpers import norm_domain, parse_core_addresses
@@ -22,7 +23,7 @@ def score_email(headers, body_text, urls, attachments):
     Returns label, score, explanations, matched_keywords, suspicious_urls.
     """
     score = 0
-    explanations = []
+    raw_reasons = []
     matched_keywords = []
     from_addr, reply_to, return_path = parse_core_addresses(headers)
     from_dom = norm_domain(from_addr.split('@')[1]) if from_addr and '@' in from_addr else None
@@ -32,25 +33,25 @@ def score_email(headers, body_text, urls, attachments):
     # Identity
     if rt_dom and rt_dom != from_dom:
         score += 3
-        explanations.append(f"+3 points: Reply-to domain differs from From domain ({rt_dom})")
+        raw_reasons.append(f"+3 points: Reply-to domain differs from From domain ({rt_dom})")
     if rp_dom and rp_dom != from_dom:
         score += 2
-        explanations.append(f"+2 points: Return-path domain differs from From domain ({rp_dom})")
+        raw_reasons.append(f"+2 points: Return-path domain differs from From domain ({rp_dom})")
     if reason := is_idn_or_confusable(from_dom):
         score += 3
-        explanations.append(f"+3 points: From domain contains IDN or confusable characters ({reason} in {from_dom})")
+        raw_reasons.append(f"+3 points: From domain contains IDN or confusable characters ({reason} in {from_dom})")
     if is_freemx(from_dom) and (mentioned_brands := mentions_brand(headers.get('subject', ''), body_text)):
         score += 2
-        explanations.append(f"+2 points: Free email provider ({from_dom}) with brand mention ({', '.join(mentioned_brands)})")
+        raw_reasons.append(f"+2 points: Free email provider ({from_dom}) with brand mention ({', '.join(mentioned_brands)})")
 
     # Routing
     if anomaly_reason := received_anomaly(headers.getall('received') if hasattr(headers, 'getall') else []):
         score += 2
-        explanations.append(f"+2 points: Anomalous Received headers ({anomaly_reason})")
+        raw_reasons.append(f"+2 points: Anomalous Received headers ({anomaly_reason})")
     mismatched_msgid_dom = msgid_domain_mismatch(headers.get('message-id'), from_dom)
     if mismatched_msgid_dom:
         score += 1
-        explanations.append(f"+1 point: Message-ID domain mismatch ({mismatched_msgid_dom})")
+        raw_reasons.append(f"+1 point: Message-ID domain mismatch ({mismatched_msgid_dom})")
 
     # Lexical
     lex_score, matched_keywords, keyword_hits = lexical_score(headers.get('subject', ''), body_text)
@@ -58,9 +59,9 @@ def score_email(headers, body_text, urls, attachments):
     if keyword_hits:
         for hit in keyword_hits:
             location = hit.location.replace('_', ' ')
-            explanations.append(f"+{hit.points} points: Keyword '{hit.keyword}' in {location}")
+            raw_reasons.append(f"+{hit.points} points: Keyword '{hit.keyword}' in {location}")
     elif matched_keywords:
-        explanations.append(f"+{lex_score} points: Matched phishing keywords ({', '.join(matched_keywords)})")
+        raw_reasons.append(f"+{lex_score} points: Matched phishing keywords ({', '.join(matched_keywords)})")
 
     # URLs
     suspicious_urls = check_urls(urls)
@@ -78,20 +79,30 @@ def score_email(headers, body_text, urls, attachments):
             points_added += 2
         score += points_added
         if points_added > 0:
-            explanations.append(f"+{points_added} points: Suspicious URL {url_str} ({reason_str})")
+            raw_reasons.append(f"+{points_added} points: Suspicious URL {url_str} ({reason_str})")
 
     # Attachments
     for att in attachments:
         if is_dangerous(att):
             score += 4
-            explanations.append(f"+4 points: Dangerous attachment extension in {att}")
+            raw_reasons.append(f"+4 points: Dangerous attachment extension in {att}")
         if archive_name_suspicious(att):
             score += 2
-            explanations.append(f"+2 points: Suspicious archive attachment {att}")
+            raw_reasons.append(f"+2 points: Suspicious archive attachment {att}")
 
     # Whitelist floor
     if from_dom in WHITELIST_DOMAINS and score > 0:
         score = max(0, score - 4)
-        explanations.append(f"-4 points: {from_dom} in whitelist")
+        raw_reasons.append(f"-4 points: {from_dom} in whitelist")
 
-    return label_from(score), score, explanations, matched_keywords, suspicious_urls
+    label = label_from(score)
+    explanations = build_explanations(
+        label,
+        score,
+        raw_reasons,
+        matched_keywords,
+        suspicious_urls,
+        attachments,
+    )
+
+    return label, score, explanations, matched_keywords, suspicious_urls
