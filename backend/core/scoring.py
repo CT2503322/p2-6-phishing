@@ -53,9 +53,13 @@ def score_email(headers, body_text, urls, attachments):
         explanations.append(f"+1 point: Message-ID domain mismatch ({mismatched_msgid_dom})")
 
     # Lexical
-    lex_score, matched_keywords = lexical_score(headers.get('subject',''), body_text)
+    lex_score, matched_keywords, keyword_hits = lexical_score(headers.get('subject', ''), body_text)
     score += lex_score
-    if matched_keywords:
+    if keyword_hits:
+        for hit in keyword_hits:
+            location = hit.location.replace('_', ' ')
+            explanations.append(f"+{hit.points} points: Keyword '{hit.keyword}' in {location}")
+    elif matched_keywords:
         explanations.append(f"+{lex_score} points: Matched phishing keywords ({', '.join(matched_keywords)})")
 
     # URLs
