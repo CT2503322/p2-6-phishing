@@ -59,9 +59,9 @@ This document tracks the implementation status of features in the phishing detec
 
 ### Edit Distance
 
-- [ ] Implement `edit_distance.py` - banded Levenshtein with cutoff
-- [ ] Add fuzzy matching for known phishing domains/brands
-- [ ] Optimize for performance with cutoff thresholds
+- [x] Implement `edit_distance.py` - banded Levenshtein with cutoff
+- [x] Add fuzzy matching for known phishing domains/brands
+- [x] Optimize for performance with cutoff thresholds
 
 ### Reply-To vs From Mismatch
 
@@ -86,7 +86,7 @@ This document tracks the implementation status of features in the phishing detec
 
 ### Explain Module
 
-- [ ] Implement `explain.py` - human-readable reasons
+- [x] Implement `explain.py` - human-readable reasons
 - [ ] Generate detailed explanations for phishing scores
 - [ ] Provide actionable feedback for flagged emails
 

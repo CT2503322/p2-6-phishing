@@ -2,19 +2,13 @@
 
 from __future__ import annotations
 
-import re
 from typing import List, Sequence
 
-_TOKEN_PATTERN = re.compile(r"[a-z0-9]+")
+from backend.core.text import normalize_text, tokenize_words
 
 
 def banded_levenshtein(a: str, b: str, max_distance: int | None = None) -> int | None:
-    """Compute Levenshtein distance with optional banded cutoff.
-
-    Returns the exact distance when it is within ``max_distance``.
-    If ``max_distance`` is provided and the distance exceeds that threshold,
-    ``None`` is returned allowing callers to short-circuit expensive checks.
-    """
+    """Compute Levenshtein distance with optional banded cutoff."""
 
     if a == b:
         return 0
@@ -82,13 +76,16 @@ def fuzzy_domain_matches(
 ) -> List[str]:
     """Return known phishing domains that are within edit distance of ``domain``."""
 
-    domain_norm = (domain or "").lower()
+    domain_norm = normalize_text(domain, lowercase=True, strip_accents=True, collapse_whitespace=True)
+    domain_norm = domain_norm.replace(" ", "")
     if not domain_norm:
         return []
 
     matches: List[str] = []
     for candidate in candidates:
-        candidate_norm = candidate.lower()
+        candidate_norm = normalize_text(candidate, lowercase=True, strip_accents=True, collapse_whitespace=True).replace(" ", "")
+        if not candidate_norm:
+            continue
         if candidate_norm == domain_norm:
             matches.append(candidate)
             continue
@@ -104,10 +101,7 @@ def fuzzy_brand_mentions(
 ) -> List[str]:
     """Detect near-miss brand mentions within free-form text."""
 
-    if not text:
-        return []
-
-    tokens = _extract_tokens(text.lower())
+    tokens = tokenize_words(text, lowercase=True, min_length=1)
     if not tokens:
         return []
 
@@ -115,8 +109,8 @@ def fuzzy_brand_mentions(
     seen = set()
 
     for brand in brands:
-        brand_norm = brand.lower()
-        if brand_norm in seen:
+        brand_norm = normalize_text(brand, lowercase=True, strip_accents=True, collapse_whitespace=True)
+        if not brand_norm or brand_norm in seen:
             continue
 
         brand_tokens = brand_norm.split()
@@ -146,7 +140,3 @@ def fuzzy_brand_mentions(
                     seen.add(brand_norm)
                     break
     return matches
-
-
-def _extract_tokens(text: str) -> List[str]:
-    return _TOKEN_PATTERN.findall(text)
