@@ -94,9 +94,9 @@ This document tracks the implementation status of features in the phishing detec
 
 ### Text Processing
 
-- [ ] Implement `text.py` - text processing utilities
-- [ ] Add text normalization functions
-- [ ] Implement tokenization and cleaning
+- [x] Implement `text.py` - text processing utilities
+- [x] Add text normalization functions
+- [x] Implement tokenization and cleaning
 
 ### Domain Handling
 
@@ -134,8 +134,8 @@ This document tracks the implementation status of features in the phishing detec
 
 ### Suspicious Terms
 
-- [ ] Create `data/suspicious_terms.txt`
-- [ ] Populate with common phishing keywords
+- [x] Create `data/suspicious_terms.txt`
+- [x] Populate with common phishing keywords
 - [ ] Maintain and update term list
 
 ### Known Brands
