@@ -7,7 +7,7 @@ This document tracks the implementation status of features in the phishing detec
 ### Ingestion
 
 - [x] Implement `parse_eml.py` - Basic email parsing (headers, subject, body)
-- [ ] Improve `parse_eml.py` - Add low-level MIME multipart parsing, attachment extraction, encoding handling
+- [x] Improve `parse_eml.py` - Add low-level MIME multipart parsing, attachment extraction, encoding handling
 - [x] Implement `clean_html.py` - HTML content cleaning utilities
 - [x] Implement `clean_zerowidth.py` - Zero-width character removal
 
