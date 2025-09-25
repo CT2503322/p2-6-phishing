@@ -2,14 +2,25 @@ from backend.core.explain import build_explanations
 from backend.core.lexical_score import lexical_score
 from backend.core.attachment_checks import archive_name_suspicious, is_dangerous
 from backend.core.helpers import norm_domain, parse_core_addresses
-from backend.core.identity_checks import is_freemx, is_idn_or_confusable, mentions_brand
+from backend.core.identity_checks import (
+    domain_similar_to_brand,
+    is_freemx,
+    is_idn_or_confusable,
+    mentions_brand,
+)
 from backend.core.routing_checks import msgid_domain_mismatch, received_anomaly
-from backend.core.url_checks import WHITELIST_DOMAINS, check_urls, anchor_text_domain_mismatch, is_high_risk_tld, is_shortener, looks_credential_harvest
+from backend.core.url_checks import (
+    WHITELIST_DOMAINS,
+    anchor_text_domain_mismatch,
+    check_urls,
+    is_high_risk_tld,
+    is_shortener,
+    looks_credential_harvest,
+)
 
 
 def label_from(score):
-    """Label based on score.
-    """
+    """Label based on score."""
     if score >= 10:
         return 'HIGH'
     elif score >= 5:
@@ -43,6 +54,17 @@ def score_email(headers, body_text, urls, attachments):
     if is_freemx(from_dom) and (mentioned_brands := mentions_brand(headers.get('subject', ''), body_text)):
         score += 2
         raw_reasons.append(f"+2 points: Free email provider ({from_dom}) with brand mention ({', '.join(mentioned_brands)})")
+
+    seen_brand_domains = set()
+    for label_name, dom in (("From", from_dom), ("Reply-To", rt_dom), ("Return-path", rp_dom)):
+        if not dom or dom in seen_brand_domains:
+            continue
+        seen_brand_domains.add(dom)
+        if brand_domain_hits := domain_similar_to_brand(dom):
+            score += 3
+            raw_reasons.append(
+                f"+3 points: {label_name} domain resembles trusted brand ({dom} ~ {', '.join(brand_domain_hits)})"
+            )
 
     # Routing
     if anomaly_reason := received_anomaly(headers.getall('received') if hasattr(headers, 'getall') else []):

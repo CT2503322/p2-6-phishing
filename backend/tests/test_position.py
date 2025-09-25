@@ -53,6 +53,6 @@ def test_score_email_includes_positional_explanations():
 
     assert total == 3
     assert label == 'LOW'
-    assert any("Keyword 'urgent' in subject" in exp for exp in explanations)
+    assert any("trigger word 'urgent'" in exp for exp in explanations)
     assert matched_keywords == ['urgent']
     assert suspicious_urls == []
