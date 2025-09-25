@@ -1,4 +1,3 @@
-
 import base64
 import hashlib
 from email.message import EmailMessage
@@ -24,6 +23,8 @@ def test_parse_plain_text_email(tmp_path):
     assert parsed['attachments'] == ''
     assert parsed['attachment_details'] == []
     assert parsed['mime_tree']['content_type'] == 'text/plain'
+    assert parsed['authentication_results'] == []
+    assert parsed['received_spf'] == []
 
 
 def test_parse_multipart_alternative_handles_charsets(tmp_path):
@@ -92,3 +93,34 @@ def test_parse_extracts_attachments_with_metadata(tmp_path):
     assert image_meta['content_id'] == 'img1'
     assert image_meta['payload_included'] is True
     assert base64.b64decode(image_meta['payload_base64']) == image_bytes
+
+def test_parse_eml_includes_authentication_metadata(tmp_path):
+    msg = EmailMessage()
+    msg['From'] = 'Sec Team <security@example.com>'
+    msg['To'] = 'User <user@example.com>'
+    msg['Subject'] = 'Alert'
+    msg['Authentication-Results'] = (
+        'Authentication-Results: auth.example; '
+        'spf=pass smtp.mailfrom=example.com; '
+        'dkim=pass header.d=example.com header.s=s1'
+    )
+    msg['Received-SPF'] = (
+        'Received-SPF: pass (policy) client-ip=203.0.113.9; '
+        'envelope-from=example.com; helo=mail.example.com'
+    )
+    msg.set_content('Just a drill')
+
+    eml_path = tmp_path / 'auth.eml'
+    eml_path.write_bytes(msg.as_bytes())
+
+    parsed = parse_eml(str(eml_path))
+
+    auth_results = parsed['authentication_results']
+    assert len(auth_results) == 1
+    methods = {entry['method']: entry for entry in auth_results[0]['results']}
+    assert methods['spf']['result'] == 'pass'
+    assert methods['dkim']['properties']['header.d'] == 'example.com'
+
+    received_spf = parsed['received_spf']
+    assert received_spf[0]['result'] == 'pass'
+    assert received_spf[0]['properties']['client-ip'] == '203.0.113.9'

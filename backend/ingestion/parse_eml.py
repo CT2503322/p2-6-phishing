@@ -13,6 +13,7 @@ from email.utils import getaddresses
 
 from backend.ingestion.clean_html import clean_html
 from backend.ingestion.clean_zerowidth import clean_zerowidth
+from backend.core.auth_checks.auth_headers import extract_authentication_metadata
 
 DEFAULT_CHARSET_CANDIDATES: tuple[str, ...] = (
     "utf-8",
@@ -316,6 +317,8 @@ def parse_eml(file_path):
         for name, values in headers_map.items()
     }
 
+    auth_meta = extract_authentication_metadata(headers_map)
+
     received_header = '\n'.join(headers_map.get('Received', []))
 
     return {
@@ -341,6 +344,8 @@ def parse_eml(file_path):
         'attachment_names': attachment_names,
         'attachment_details': attachments_meta,
         'received': received_header,
+        'authentication_results': auth_meta['authentication_results'],
+        'received_spf': auth_meta['received_spf'],
         'headers': headers_map,
         'headers_decoded': decoded_headers,
         'mime_tree': _build_mime_tree(msg),
