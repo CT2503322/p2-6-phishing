@@ -357,8 +357,8 @@ def main():
             suffix = "..." if len(text_body) > 500 else ""
             st.write(f"**Body:** {preview}{suffix}")
 
-    button_columns = st.columns([0.68, 0.32])
-    with button_columns[1]:
+    button_columns = st.columns([0.32, 0.68])
+    with button_columns[0]:
         analyze_clicked = st.button("Run Analysis", type="primary")
     st.markdown("</div>", unsafe_allow_html=True)
 
