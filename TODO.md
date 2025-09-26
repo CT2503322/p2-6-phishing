@@ -71,8 +71,8 @@ This document tracks the implementation status of features in the phishing detec
 
 ### Unicode/Confusables
 
-- [ ] Implement `confusables.py` - unicode skeleton + IDN homograph checks
-- [ ] Normalize unicode characters for comparison
+- [x] Implement `confusables.py` - unicode skeleton + IDN homograph checks
+- [x] Normalize unicode characters for comparison
 - [ ] Detect homograph attacks using similar-looking characters
 - [ ] Check IDN domains for suspicious patterns
 

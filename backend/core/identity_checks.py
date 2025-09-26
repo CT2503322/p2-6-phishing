@@ -1,6 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
+from backend.core.confusables import detect_confusable
 from backend.core.edit_distance import fuzzy_brand_mentions, fuzzy_domain_matches
 
 _DATA_DIR = Path(__file__).resolve().parents[2] / 'data'
@@ -72,11 +73,8 @@ def is_idn_or_confusable(domain):
     """
     if not domain:
         return False
-    if 'xn--' in domain:
-        return "xn-- prefix"
-    if any(ord(c) > 127 for c in domain):
-        return "non-ASCII characters"
-    return False
+    reason = detect_confusable(domain, _known_brand_domains())
+    return reason or False
 
 
 def is_freemx(domain):
