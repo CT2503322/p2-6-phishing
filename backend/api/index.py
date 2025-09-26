@@ -43,12 +43,22 @@ def highlight_body(body_text, matched_keywords, suspicious_urls):
             flags=re.IGNORECASE,
         )
     # Highlight suspicious URLs
-    for u, reasons in suspicious_urls:
-        url_str = u.geturl()
-        reason_str = "; ".join(reasons)
+    for entry in suspicious_urls:
+        if isinstance(entry, dict):
+            url_obj = entry.get('url')
+            reasons = entry.get('reasons', [])
+        elif isinstance(entry, (tuple, list)) and len(entry) >= 2:
+            url_obj, reasons = entry[0], entry[1]
+        else:
+            continue
+        if not url_obj:
+            continue
+        url_str = url_obj.geturl()
+        reason_str = '; '.join(str(reason) for reason in reasons if reason)
         escaped_url = html.escape(url_str)
+        title_attr = html.escape(reason_str) if reason_str else 'Suspicious link'
         highlighted = highlighted.replace(
-            escaped_url, f'<mark title="{reason_str}">{escaped_url}</mark>'
+            escaped_url, f'<mark title="{title_attr}">{escaped_url}</mark>'
         )
     return highlighted
 

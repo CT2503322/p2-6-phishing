@@ -235,6 +235,10 @@ def main():
                 overflow-wrap: anywhere;
                 word-break: break-all;
             }
+            div[data-testid="stMarkdown"] a {
+                overflow-wrap: anywhere;
+                word-break: break-all;
+            }
         </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)

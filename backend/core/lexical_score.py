@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable, Tuple
-
+from typing import List, Tuple
 
 _KEYWORD_RULES: Tuple[tuple[re.Pattern[str], int, str], ...] = (
     (re.compile(r"\burgent\b", re.IGNORECASE), 2, 'urgent language'),
@@ -15,17 +14,16 @@ _KEYWORD_RULES: Tuple[tuple[re.Pattern[str], int, str], ...] = (
 )
 
 
-def lexical_score(subj: str, body: str) -> tuple[int, list[str]]:
-    """Return a heuristic score based on risky wording.
-
-    We sum the weights for matched patterns but cap at 4 so a single
-    legitimate keyword does not overwhelm the score.
-    """
+def lexical_score(subj: str, body: str) -> tuple[int, list[str], list[str]]:
+    """Return a heuristic score and matched phrases/descriptions."""
     text = f"{subj or ''} {body or ''}"
-    matches: list[str] = []
+    matched_phrases: list[str] = []
+    matched_descriptions: list[str] = []
     score = 0
     for pattern, weight, label in _KEYWORD_RULES:
-        if pattern.search(text):
-            matches.append(label)
+        match = pattern.search(text)
+        if match:
+            matched_phrases.append(match.group(0))
+            matched_descriptions.append(label)
             score += weight
-    return min(score, 4), matches
+    return min(score, 4), matched_phrases, matched_descriptions

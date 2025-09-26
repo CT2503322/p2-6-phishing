@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from email.utils import parseaddr
 from functools import lru_cache
-from typing import Iterable
 
 _PUBLIC_SUFFIX_3 = {
     'ac.uk',
