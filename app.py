@@ -245,7 +245,7 @@ def main():
 
     st.markdown(
         """
-        <div class="page-intro">Welcome to your personalised phishing detector.</div>
+        <div class="page-intro">Welcome to Phisherman!</div>
         <p class="page-description">
             Upload suspicious email files or paste the message body. Compare rule-based, machine learning,
             and LLM-driven analysis without leaving this workspace.
