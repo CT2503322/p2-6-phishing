@@ -53,9 +53,9 @@ This document tracks the implementation status of features in the phishing detec
 
 ### Position Analysis
 
-- [ ] Implement `position.py` - subject/early-body weighting
-- [ ] Add logic to prioritize suspicious content in email subject and early body text
-- [ ] Integrate position weighting into scoring system
+- [x] Implement `position.py` - subject/early-body weighting
+- [x] Add logic to prioritize suspicious content in email subject and early body text
+- [x] Integrate position weighting into scoring system
 
 ### Edit Distance
 

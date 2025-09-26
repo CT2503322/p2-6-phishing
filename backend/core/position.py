@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, List
+from typing import Iterable, List, Set
 
 EARLY_BODY_WINDOW = 400
 BASE_KEYWORD_POINTS = 1
@@ -52,7 +52,16 @@ def score_keyword_positions(
 
     hits: List[KeywordHit] = []
     matched: List[str] = []
+    seen: Set[str] = set()
     total_points = 0
+
+    def record_hit(keyword: str, location: str, points: int, offset: int, signature: str) -> None:
+        nonlocal total_points
+        hits.append(KeywordHit(keyword, location, points, offset))
+        if signature not in seen:
+            matched.append(keyword)
+            seen.add(signature)
+        total_points += points
 
     for keyword in keywords:
         kw_norm = keyword.lower()
@@ -61,28 +70,18 @@ def score_keyword_positions(
 
         if kw_norm in subject_norm:
             offset = _find_offset(subject_norm, kw_norm)
-            points = BASE_KEYWORD_POINTS + SUBJECT_BONUS
-            hits.append(KeywordHit(keyword, "subject", points, offset))
-            matched.append(keyword)
-            total_points += points
+            record_hit(keyword, "subject", BASE_KEYWORD_POINTS + SUBJECT_BONUS, offset, kw_norm)
             continue
 
         if kw_norm in early_span:
             offset = _find_offset(early_span, kw_norm)
-            points = BASE_KEYWORD_POINTS + EARLY_BODY_BONUS
-            hits.append(KeywordHit(keyword, "early_body", points, offset))
-            matched.append(keyword)
-            total_points += points
+            record_hit(keyword, "early_body", BASE_KEYWORD_POINTS + EARLY_BODY_BONUS, offset, kw_norm)
             continue
 
         if kw_norm in late_span:
             offset = _find_offset(late_span, kw_norm)
             if offset >= 0:
                 offset += early_body_window
-            points = BASE_KEYWORD_POINTS
-            hits.append(KeywordHit(keyword, "body", points, offset))
-            matched.append(keyword)
-            total_points += points
+            record_hit(keyword, "body", BASE_KEYWORD_POINTS, offset, kw_norm)
 
     return total_points, matched, hits
-
