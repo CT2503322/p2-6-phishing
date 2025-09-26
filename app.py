@@ -222,16 +222,16 @@ def main():
             .stAlert {
                 border-radius: var(--radius-md);
             }
-            .card ul,
-            .card ol {
+            div[data-testid="stMarkdown"] ul {
                 padding-left: 1.2rem;
                 margin-bottom: 0.75rem;
             }
-            .card li {
+            div[data-testid="stMarkdown"] li {
+                margin-bottom: 0.4rem;
                 overflow-wrap: anywhere;
                 word-break: break-word;
             }
-            .card li a {
+            div[data-testid="stMarkdown"] li a {
                 overflow-wrap: anywhere;
                 word-break: break-all;
             }
@@ -542,12 +542,12 @@ def main():
                     else:
                         st.write(f"**Likelihood:** {analysis.get('score', 'N/A')}")
 
-                st.write("**Key Findings:**")
+                st.markdown("**Key Findings:**")
                 if "explanations" in analysis and analysis["explanations"]:
-                    for expl in analysis["explanations"]:
-                        st.write(f"- {expl}")
+                    findings_lines = "\n".join(f"- {expl}" for expl in analysis["explanations"])
+                    st.markdown(findings_lines)
                 else:
-                    st.write("*Explanations not available for this detection method.*")
+                    st.markdown("*Explanations not available for this detection method.*")
 
                 if "highlighted_body" in analysis and analysis["highlighted_body"]:
                     st.write("**Highlighted Email Content:**")
