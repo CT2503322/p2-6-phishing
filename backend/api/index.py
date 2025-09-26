@@ -299,6 +299,14 @@ async def analyze_ml(data: dict):
     ml_model = data["ml_model"]
     try:
         body_text = parsed.get("body", "")
+        headers = {
+            "from": parsed.get("from", ""),
+            "reply-to": parsed.get("reply-to", ""),
+            "return-path": parsed.get("return-path", ""),
+            "subject": parsed.get("subject", ""),
+            "message-id": parsed.get("message_id", ""),
+            "received": parsed.get("received", ""),
+        }
 
         model = None
         model_name_map = {
@@ -320,14 +328,33 @@ async def analyze_ml(data: dict):
 
         mlguess = predict_phishing(body_text, model)
 
+        urls = extract_urls(body_text)
+        attachments_value = parsed.get("attachments", "")
+        if isinstance(attachments_value, (list, tuple)):
+            attachments = list(attachments_value)
+        elif attachments_value:
+            attachments = [attachments_value]
+        else:
+            attachments = []
+
+        heur_label, heur_score, heur_explanations, matched_keywords, suspicious_urls = score_email(
+            headers, body_text, urls, attachments
+        )
+        explanations = list(heur_explanations) if heur_explanations else [
+            f"Heuristic cross-check score {heur_score} ({heur_label})."
+        ]
+        highlighted_body = highlight_body(body_text, matched_keywords, suspicious_urls)
+
         return JSONResponse(
             {
                 "label": mlguess["label"],
                 "score": mlguess["percent"],
-                "explanations": ["N/A"],
-                "highlighted_body": body_text,
+                "explanations": explanations,
+                "highlighted_body": highlighted_body,
                 "detection_method": "ML",
                 "ml_model": ml_model,
+                "heuristic_label": heur_label,
+                "heuristic_score": heur_score,
             }
         )
     except Exception as e:
