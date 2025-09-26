@@ -222,6 +222,19 @@ def main():
             .stAlert {
                 border-radius: var(--radius-md);
             }
+            .card ul,
+            .card ol {
+                padding-left: 1.2rem;
+                margin-bottom: 0.75rem;
+            }
+            .card li {
+                overflow-wrap: anywhere;
+                word-break: break-word;
+            }
+            .card li a {
+                overflow-wrap: anywhere;
+                word-break: break-all;
+            }
         </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)
