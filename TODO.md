@@ -88,7 +88,7 @@ This document tracks the implementation status of features in the phishing detec
 
 - [x] Implement `explain.py` - human-readable reasons
 - [ ] Generate detailed explanations for phishing scores
-- [ ] Provide actionable feedback for flagged emails
+- [x] Provide actionable feedback for flagged emails
 
 ## Utils Modules
 

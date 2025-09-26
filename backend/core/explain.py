@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import List, Sequence, Tuple
+from typing import List, Sequence, Tuple, Set
 from urllib.parse import ParseResult
 
 POINT_PREFIX_PATTERN = re.compile(r"^([+-]\d+)\s+points?:\s*(.*)$", re.IGNORECASE)
@@ -44,7 +44,8 @@ def build_explanations(
     summary = _build_summary(label_upper, score, matched)
     lines: List[str] = [summary] + detail_lines
 
-    if label_upper in {"MEDIUM", "HIGH"}:
+    general_actions: List[str] = []
+    if label_upper in {'MEDIUM', 'HIGH'}:
         general_actions = _general_actions(
             label_upper,
             urls,
@@ -54,6 +55,10 @@ def build_explanations(
         for action_line in general_actions:
             if action_line not in lines:
                 lines.append(action_line)
+
+    action_items = _collect_action_items(detail_lines, general_actions)
+    if label_upper != 'LOW' and action_items:
+        lines.append(_format_action_summary(action_items))
 
     return lines
 
@@ -117,6 +122,42 @@ def _general_actions(
         )
 
     return actions
+
+
+def _collect_action_items(detail_lines: Sequence[str], general_actions: Sequence[str]) -> List[str]:
+    items: List[str] = []
+    seen: Set[str] = set()
+
+    for line in detail_lines:
+        action = _extract_action_clause(line)
+        if action and action not in seen:
+            items.append(action)
+            seen.add(action)
+
+    for raw in general_actions:
+        normalized = raw.replace('Next step:', '', 1).strip()
+        normalized = normalized.rstrip('. ')
+        if normalized and normalized not in seen:
+            items.append(normalized)
+            seen.add(normalized)
+
+    return items
+
+
+def _extract_action_clause(text: str) -> str | None:
+    if 'Action:' not in text:
+        return None
+    clause = text.split('Action:', 1)[1].strip()
+    clause = clause.rstrip('. ')
+    return clause or None
+
+
+def _format_action_summary(actions: Sequence[str], limit: int = 4) -> str:
+    limited = list(actions)[:limit]
+    summary = '; '.join(limited)
+    if len(actions) > limit:
+        summary += '; ...'
+    return f'Action checklist: {summary}.'
 
 
 def _humanize_reason(reason: str) -> str:
