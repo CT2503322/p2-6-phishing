@@ -2,6 +2,7 @@ from backend.core.explain import build_explanations
 from backend.core.lexical_score import lexical_score
 from backend.core.attachment_checks import archive_name_suspicious, is_dangerous
 from backend.core.helpers import norm_domain, parse_core_addresses
+from backend.core.replyto_from import analyze_reply_to
 from backend.core.identity_checks import (
     domain_similar_to_brand,
     is_freemx,
@@ -37,14 +38,20 @@ def score_email(headers, body_text, urls, attachments):
     raw_reasons = []
     matched_keywords = []
     from_addr, reply_to, return_path = parse_core_addresses(headers)
-    from_dom = norm_domain(from_addr.split('@')[1]) if from_addr and '@' in from_addr else None
-    rt_dom = norm_domain(reply_to.split('@')[1]) if reply_to and '@' in reply_to else None
+
+    reply_analysis = analyze_reply_to(from_addr, reply_to)
+    from_dom = reply_analysis.from_domain
+    rt_dom = reply_analysis.reply_to_domain
+    if from_dom is None and from_addr and '@' in from_addr:
+        from_dom = norm_domain(from_addr.split('@')[1])
+    if rt_dom is None and reply_to and '@' in reply_to:
+        rt_dom = norm_domain(reply_to.split('@')[1])
     rp_dom = norm_domain(return_path.split('@')[1]) if return_path and '@' in return_path else None
 
+    score += reply_analysis.score
+    raw_reasons.extend(reply_analysis.reasons)
+
     # Identity
-    if rt_dom and rt_dom != from_dom:
-        score += 3
-        raw_reasons.append(f"+3 points: Reply-to domain differs from From domain ({rt_dom})")
     if rp_dom and rp_dom != from_dom:
         score += 2
         raw_reasons.append(f"+2 points: Return-path domain differs from From domain ({rp_dom})")
