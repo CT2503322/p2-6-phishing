@@ -4,6 +4,7 @@ import re
 from typing import List, Sequence, Tuple, Set
 from urllib.parse import ParseResult
 
+# Regex to extract point-prefixed reasons, e.g., "+5 points: Some reason"
 POINT_PREFIX_PATTERN = re.compile(r"^([+-]\d+)\s+points?:\s*(.*)$", re.IGNORECASE)
 
 
@@ -15,8 +16,20 @@ def build_explanations(
     suspicious_urls: Sequence[Tuple[ParseResult, Sequence[str]]] | None = None,
     attachments: Sequence[str] | None = None,
 ) -> List[str]:
-    """Convert scoring signals into reader-friendly explanations with actions."""
+    """
+    Convert raw scoring signals and metadata into human-readable security guidance.
 
+    Arguments:
+    - label: Risk level ("LOW", "MEDIUM", "HIGH")
+    - score: Composite score used in phishing detection
+    - raw_reasons: Raw strings indicating specific reasons for the score
+    - matched_keywords: Optional list of phishing keywords matched
+    - suspicious_urls: Optional list of suspicious URLs and reasons
+    - attachments: Optional list of attachment filenames
+
+    Returns:
+    - A list of human-readable explanation and action strings
+    """
     reasons = list(raw_reasons or [])
     matched = [kw for kw in (matched_keywords or []) if kw]
     urls = list(suspicious_urls or [])
@@ -31,6 +44,7 @@ def build_explanations(
 
     label_upper = (label or "").upper()
 
+    # Fallback if no parsed explanations are available
     if not detail_lines:
         if label_upper == "LOW":
             detail_lines.append(
@@ -41,9 +55,11 @@ def build_explanations(
                 "The message was flagged by the scoring engine, but specific signals could not be interpreted. Action: Treat the email as suspicious and verify through another channel."
             )
 
+    # Create summary and prepend it
     summary = _build_summary(label_upper, score, matched)
     lines: List[str] = [summary] + detail_lines
 
+    # Generate general actions based on score level and content
     general_actions: List[str] = []
     if label_upper in {'MEDIUM', 'HIGH'}:
         general_actions = _general_actions(
@@ -56,6 +72,7 @@ def build_explanations(
             if action_line not in lines:
                 lines.append(action_line)
 
+    # Extract unique action items for summary
     action_items = _collect_action_items(detail_lines, general_actions)
     if label_upper != 'LOW' and action_items:
         lines.append(_format_action_summary(action_items))
@@ -64,6 +81,9 @@ def build_explanations(
 
 
 def _build_summary(label: str, score: int, matched_keywords: Sequence[str]) -> str:
+    """
+    Create a one-line summary of phishing risk and detected keywords.
+    """
     severity_text = {
         "HIGH": "High risk phishing alert",
         "MEDIUM": "Elevated phishing risk",
@@ -90,6 +110,9 @@ def _general_actions(
     attachments: Sequence[str],
     has_attachment_signal: bool,
 ) -> List[str]:
+    """
+    Generate user-facing next-step actions based on message content and risk level.
+    """
     actions: List[str] = []
     actions.append(
         "Next step: Verify the sender using a trusted contact method before responding or sharing information."
@@ -125,6 +148,9 @@ def _general_actions(
 
 
 def _collect_action_items(detail_lines: Sequence[str], general_actions: Sequence[str]) -> List[str]:
+    """
+    Extract and deduplicate actionable phrases from explanations and general actions.
+    """
     items: List[str] = []
     seen: Set[str] = set()
 
@@ -145,6 +171,9 @@ def _collect_action_items(detail_lines: Sequence[str], general_actions: Sequence
 
 
 def _extract_action_clause(text: str) -> str | None:
+    """
+    Extract the "Action:" part from a human-readable explanation.
+    """
     if 'Action:' not in text:
         return None
     clause = text.split('Action:', 1)[1].strip()
@@ -153,6 +182,9 @@ def _extract_action_clause(text: str) -> str | None:
 
 
 def _format_action_summary(actions: Sequence[str], limit: int = 4) -> str:
+    """
+    Format a concise summary checklist from a list of actions.
+    """
     limited = list(actions)[:limit]
     summary = '; '.join(limited)
     if len(actions) > limit:
@@ -161,9 +193,13 @@ def _format_action_summary(actions: Sequence[str], limit: int = 4) -> str:
 
 
 def _humanize_reason(reason: str) -> str:
+    """
+    Convert a machine-generated reason string into a readable explanation.
+    """
     delta, description = _split_points(reason)
     description = description.strip()
 
+    # Map known reasons to explanation handlers
     handler_map = [
         ("Reply-to domain differs", _handle_reply_to_mismatch),
         ("Return-path domain differs", _handle_return_path_mismatch),
@@ -179,27 +215,31 @@ def _humanize_reason(reason: str) -> str:
         ("in whitelist", _handle_whitelist_hit),
     ]
 
+    # Call the appropriate handler
     for needle, handler in handler_map:
         if needle in description:
             return handler(delta, description)
 
+    # Fallback explanation
     return _compose_line(
         delta,
         f"Indicator: {description}",
         "Verify the message with the sender via a trusted channel before taking action.",
     )
 
-
+# Handles cases where the reply-to domain differs from the sender's domain
 def _handle_reply_to_mismatch(delta: int | None, description: str) -> str:
     parts = _extract_parentheticals(description)
     domain = parts[0] if parts else "an unknown domain"
     explanation = (
-        f"The reply-to address routes responses to {domain}, which differs from the visible sender domain. Attackers often redirect replies to capture sensitive information."
+        f"The reply-to address routes responses to {domain}, which differs from the visible sender domain. "
+        "Attackers often redirect replies to capture sensitive information."
     )
     action = "Confirm the request using a known-good channel before replying."
     return _compose_line(delta, explanation, action)
 
 
+# Handles mismatches between return-path and From address domains
 def _handle_return_path_mismatch(delta: int | None, description: str) -> str:
     parts = _extract_parentheticals(description)
     domain = parts[0] if parts else "an unknown domain"
@@ -210,6 +250,7 @@ def _handle_return_path_mismatch(delta: int | None, description: str) -> str:
     return _compose_line(delta, explanation, action)
 
 
+# Handles domains with visually confusable characters (e.g., IDNs like "gmaíl.com")
 def _handle_confusable_domain(delta: int | None, description: str) -> str:
     match = re.search(r"\((.+?)\s+in\s+([^)]+)\)", description)
     if match:
@@ -225,6 +266,7 @@ def _handle_confusable_domain(delta: int | None, description: str) -> str:
     return _compose_line(delta, explanation, action)
 
 
+# Handles when a free email service (e.g., Gmail) is used but the message pretends to be from a brand
 def _handle_free_provider_brand(delta: int | None, description: str) -> str:
     parts = _extract_parentheticals(description)
     provider = parts[0] if parts else "a free provider"
@@ -236,6 +278,7 @@ def _handle_free_provider_brand(delta: int | None, description: str) -> str:
     return _compose_line(delta, explanation, action)
 
 
+# Handles anomalies in Received headers (used to trace how the email traveled)
 def _handle_received_anomaly(delta: int | None, description: str) -> str:
     parts = _extract_parentheticals(description)
     reason = parts[0] if parts else "unexpected routing behaviour"
@@ -246,6 +289,7 @@ def _handle_received_anomaly(delta: int | None, description: str) -> str:
     return _compose_line(delta, explanation, action)
 
 
+# Handles mismatch between Message-ID domain and the sender's domain (often a spoofing sign)
 def _handle_message_id_mismatch(delta: int | None, description: str) -> str:
     parts = _extract_parentheticals(description)
     domain = parts[0] if parts else "an unknown domain"
@@ -256,6 +300,7 @@ def _handle_message_id_mismatch(delta: int | None, description: str) -> str:
     return _compose_line(delta, explanation, action)
 
 
+# Handles keyword group matches (e.g., phishing keyword clusters)
 def _handle_keyword_group(delta: int | None, description: str) -> str:
     parts = _extract_parentheticals(description)
     keywords_text = parts[0] if parts else "high-risk keywords"
@@ -269,11 +314,12 @@ def _handle_keyword_group(delta: int | None, description: str) -> str:
     return _compose_line(delta, explanation, action)
 
 
+# Handles individual keyword triggers in specific email components
 def _handle_single_keyword(delta: int | None, description: str) -> str:
     match = re.search(r"Keyword '(.+?)' in (.+)", description)
     if match:
         keyword, location = match.groups()
-        location = location.replace("_", " ")
+        location = location.replace("_", " ")  # e.g., header_subject → header subject
     else:
         keyword, location = "high-risk language", "the message"
     explanation = (
@@ -283,6 +329,7 @@ def _handle_single_keyword(delta: int | None, description: str) -> str:
     return _compose_line(delta, explanation, action)
 
 
+# Handles suspicious URLs found in the message body
 def _handle_suspicious_url(delta: int | None, description: str) -> str:
     match = re.search(r"Suspicious URL\s+(\S+)\s+\(([^)]+)\)", description)
     if match:
@@ -296,6 +343,7 @@ def _handle_suspicious_url(delta: int | None, description: str) -> str:
     return _compose_line(delta, explanation, action)
 
 
+# Handles attachments with dangerous extensions (e.g., .exe, .js)
 def _handle_dangerous_attachment(delta: int | None, description: str) -> str:
     match = re.search(r"in\s+(.+)$", description)
     attachment = match.group(1) if match else "the attachment"
@@ -306,6 +354,7 @@ def _handle_dangerous_attachment(delta: int | None, description: str) -> str:
     return _compose_line(delta, explanation, action)
 
 
+# Handles suspicious archive files (e.g., .zip, .rar) that may contain hidden malware
 def _handle_archive_attachment(delta: int | None, description: str) -> str:
     match = re.search(r"attachment\s+(.+)$", description)
     attachment = match.group(1) if match else "the archive"
@@ -316,6 +365,7 @@ def _handle_archive_attachment(delta: int | None, description: str) -> str:
     return _compose_line(delta, explanation, action)
 
 
+# Handles cases where the domain appears on a whitelist (typically a mitigating signal)
 def _handle_whitelist_hit(delta: int | None, description: str) -> str:
     domain = description.replace("in whitelist", "").strip()
     explanation = (
@@ -326,6 +376,7 @@ def _handle_whitelist_hit(delta: int | None, description: str) -> str:
 
 
 def _split_points(reason: str) -> Tuple[int | None, str]:
+    """Split a reason into point delta and description."""
     match = POINT_PREFIX_PATTERN.match(reason.strip())
     if not match:
         return None, reason
@@ -338,6 +389,7 @@ def _split_points(reason: str) -> Tuple[int | None, str]:
 
 
 def _score_prefix(delta: int | None) -> str:
+    """Create a score-based prefix for explanations (e.g., '3-point indicator:')"""
     if not delta:
         return ""
     points = abs(delta)
@@ -347,6 +399,7 @@ def _score_prefix(delta: int | None) -> str:
 
 
 def _compose_line(delta: int | None, explanation: str, action: str | None = None) -> str:
+    """Format explanation with score prefix and optional action."""
     prefix = _score_prefix(delta)
     text = explanation.rstrip(". ") + "."
     if action:
@@ -356,10 +409,12 @@ def _compose_line(delta: int | None, explanation: str, action: str | None = None
 
 
 def _extract_parentheticals(text: str) -> List[str]:
+    """Extract all parenthetical values from a string."""
     return [match.group(1).strip() for match in re.finditer(r"\(([^)]+)\)", text)]
 
 
 def _stringify_url(url: ParseResult) -> str:
+    """Convert a ParseResult (URL object) to string."""
     if hasattr(url, "geturl"):
         return url.geturl()
     return str(url)

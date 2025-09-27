@@ -3,6 +3,12 @@ from __future__ import annotations
 import unicodedata
 from typing import Sequence
 
+
+# ----------------------------------------------
+# Constants
+# ----------------------------------------------
+
+# Set of zero-width characters (often used in phishing or obfuscation attacks)
 ZERO_WIDTH_CHARS = frozenset(chr(codepoint) for codepoint in (
     0x200B,
     0x200C,
@@ -17,6 +23,7 @@ ZERO_WIDTH_CHARS = frozenset(chr(codepoint) for codepoint in (
     0xFEFF)
 )
 
+# Mapping of ASCII characters to Unicode codepoints that look similar (homoglyphs)
 CONFUSABLE_CODEPOINTS: dict[str, tuple[int, ...]] = {
     '-': (0x2010, 0x2011, 0x2012, 0x2013, 0x2014, 0x2212),
     '0': (0x07C0, 0x1D7CE),
@@ -29,6 +36,7 @@ CONFUSABLE_CODEPOINTS: dict[str, tuple[int, ...]] = {
     '7': (0x07C7, 0x1D7D5),
     '8': (0x07C8, 0x1D7D6),
     '9': (0x07C9, 0x1D7D7),
+    # Letters: visually confusable across scripts (Latin, Cyrillic, Greek, etc.)
     'a': (0x0250, 0x0430, 0x03B1, 0x2C65, 0x1D00),
     'c': (0x0441, 0x03F2, 0x217D),
     'd': (0x0501, 0x217E),
@@ -55,11 +63,13 @@ CONFUSABLE_CODEPOINTS: dict[str, tuple[int, ...]] = {
     'z': (0x1D22, 0x0240),
 }
 
+# Build a reverse mapping: Unicode confusable character → ASCII fallback
 CONFUSABLE_MAP: dict[str, str] = {}
 for ascii_char, codepoints in CONFUSABLE_CODEPOINTS.items():
     for codepoint in codepoints:
         CONFUSABLE_MAP[chr(codepoint)] = ascii_char
 
+# Extend map with more legacy or special cases
 CONFUSABLE_MAP.update({
     chr(0x00DF): 'ss',
     chr(0x00E6): 'ae',
@@ -72,13 +82,25 @@ CONFUSABLE_MAP.update({
 })
 
 
+# ----------------------------------------------
+# Public Utility Functions
+# ----------------------------------------------
+
 def contains_zero_width(text: str | None) -> bool:
+    """
+    Check if the input text contains zero-width characters.
+    Useful for catching hidden/invisible manipulation in domains.
+    """
     if not text:
         return False
     return any(char in ZERO_WIDTH_CHARS for char in text)
 
 
 def normalize_unicode(text: str | None) -> str:
+    """
+    Normalize text to a canonical form and remove zero-width characters.
+    Converts to lowercase using casefolding for robustness.
+    """
     if not text:
         return ''
     normalized = unicodedata.normalize('NFKC', text)
@@ -87,6 +109,15 @@ def normalize_unicode(text: str | None) -> str:
 
 
 def unicode_skeleton(text: str | None) -> str:
+    """
+    Create a "skeleton" of the input string:
+    - Normalized and case-folded
+    - Zero-width and combining marks removed
+    - Unicode confusables replaced with ASCII equivalents
+    - Converts all to pure ASCII if possible
+
+    This helps in comparing domains for visual similarity.
+    """
     if not text:
         return ''
     normalized = normalize_unicode(text)
@@ -102,14 +133,28 @@ def unicode_skeleton(text: str | None) -> str:
         if ord(char) < 128:
             pieces.append(char)
             continue
+
+        # Try to strip accents and other decorations
         fallback = unicodedata.normalize('NFKD', char).encode('ascii', 'ignore').decode('ascii')
         if fallback:
             pieces.append(fallback)
     skeleton = ''.join(pieces)
+
+    # Keep only ASCII characters in the final skeleton
     return ''.join(char for char in skeleton if char.isascii())
 
 
 def detect_confusable(domain: str | None, reference_domains: Sequence[str] | None = None) -> str | None:
+    """
+    Detect whether a domain is visually confusable with any reference domain.
+    Returns a string explanation if something suspicious is detected, or None if safe.
+
+    Checks include:
+    - Punycode encoding
+    - Zero-width characters
+    - Unicode skeleton matching
+    - Non-ASCII content
+    """
     if not domain:
         return None
     candidate = domain.strip()
@@ -118,25 +163,32 @@ def detect_confusable(domain: str | None, reference_domains: Sequence[str] | Non
 
     lower_candidate = candidate.casefold()
 
+    # Flag domains with punycode encoding (used for internationalized domains)
     if 'xn--' in lower_candidate:
         return 'punycode label'
+    
+    # Check for invisible/zero-width characters
     if contains_zero_width(lower_candidate):
         return 'zero-width characters'
 
     skeleton = unicode_skeleton(lower_candidate)
     ascii_fold = ''.join(char for char in normalize_unicode(lower_candidate) if char.isascii())
 
+    # Compare against trusted reference domains using skeleton similarity
     if reference_domains:
         for reference in reference_domains:
             ref = (reference or '').strip()
             if not ref:
                 continue
             ref_lower = ref.casefold()
+
+            # Skip exact matches
             if ref_lower == lower_candidate:
                 continue
             if skeleton and skeleton == unicode_skeleton(ref_lower):
                 return f'confusable match for {ref_lower}'
 
+    # If non-ASCII content is found, but no skeleton match, flag it anyway
     if any(ord(char) > 127 for char in lower_candidate):
         if skeleton and skeleton != ascii_fold:
             return f'confusable skeleton {skeleton}'

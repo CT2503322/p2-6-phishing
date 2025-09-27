@@ -31,6 +31,11 @@ app = FastAPI(
 )
 
 
+# ----------------------------------------------
+# Helper Functions
+# ----------------------------------------------
+
+
 def highlight_body(body_text, matched_keywords, suspicious_urls):
     """Highlight suspicious parts in the body with <mark> tags and tooltips."""
     highlighted = html.escape(body_text)
@@ -42,6 +47,7 @@ def highlight_body(body_text, matched_keywords, suspicious_urls):
             highlighted,
             flags=re.IGNORECASE,
         )
+
     # Highlight suspicious URLs
     for entry in suspicious_urls:
         if isinstance(entry, dict):
@@ -65,16 +71,21 @@ def highlight_body(body_text, matched_keywords, suspicious_urls):
 
 
 def _clone_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Deep copy of the payload using JSON serialization."""
     return json.loads(json.dumps(payload))
 
 
+# Constants for supported LLM models
 SUPPORTED_LLM_MODELS = ("gpt-5-nano", "gpt-4.1-nano", "gpt-4o-mini")
 DEFAULT_LLM_MODEL = SUPPORTED_LLM_MODELS[0]
 LLM_CACHE_TTL_SECONDS = int(os.getenv("LLM_CACHE_TTL", "300"))
+
+# In-memory cache for LLM results to avoid redundant API calls
 _LLM_CACHE: Dict[Tuple[str, str], Tuple[float, Dict[str, Any]]] = {}
 
 
 def _normalize_parsed_email(parsed: Dict[str, Any]) -> str:
+    """Normalize parsed email for consistent hashing (sort keys, compact)."""
     try:
         return json.dumps(parsed, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     except TypeError:
@@ -82,14 +93,17 @@ def _normalize_parsed_email(parsed: Dict[str, Any]) -> str:
 
 
 def _hash_parsed_email(parsed: Dict[str, Any]) -> str:
+    """Generate a hash of a parsed email's normalized form."""
     return hashlib.sha256(_normalize_parsed_email(parsed).encode("utf-8")).hexdigest()
 
 
 def _cache_key(model: str, digest: str) -> Tuple[str, str]:
+    """Builds a key used for caching LLM results."""
     return model, digest
 
 
 def _get_cached_llm_payload(model: str, digest: str) -> Dict[str, Any] | None:
+    """Retrieve cached LLM result if within TTL."""
     entry = _LLM_CACHE.get(_cache_key(model, digest))
     if not entry:
         return None
@@ -105,6 +119,7 @@ def _set_cached_llm_payload(model: str, digest: str, payload: Dict[str, Any]) ->
 
 
 def _validate_llm_model(model: str) -> None:
+    """Ensure the LLM model is supported, else raise HTTP error."""
     if model not in SUPPORTED_LLM_MODELS:
         raise HTTPException(
             status_code=400,
@@ -119,6 +134,11 @@ def _build_llm_prompt(
     email_attachments: Any,
     email_urls: list,
 ) -> str:
+    
+    """
+    Generate the prompt for the LLM to analyze phishing likelihood based on email content.
+    """
+
     url_list = [url.geturl() for url in email_urls] or []
     lines = [
         "You are an expert at detecting phishing emails. Analyze the following email carefully and provide a detailed assessment focusing on specific phishing indicators.",
@@ -156,6 +176,7 @@ def _build_llm_prompt(
 
 
 def _call_llm_model(client: OpenAI, model: str, prompt: str) -> str:
+    """Send prompt to OpenAI model and stream back full response."""
     response = client.chat.completions.create(
         model=model, messages=[{"role": "system", "content": prompt}], stream=True
     )
@@ -167,6 +188,7 @@ def _call_llm_model(client: OpenAI, model: str, prompt: str) -> str:
 
 
 def _parse_llm_json(raw_response: str) -> Dict[str, Any]:
+    """Convert LLM string response to JSON dictionary."""
     try:
         return json.loads(raw_response.strip()) if raw_response.strip() else {}
     except json.JSONDecodeError as exc:
@@ -182,6 +204,9 @@ def _create_llm_payload(
     email_body: str,
     email_urls: list,
 ) -> Dict[str, Any]:
+    """
+    Create a consistent response payload for LLM-based phishing analysis.
+    """
     probability_raw = llm_analysis.get("probability", 0)
     try:
         probability = float(probability_raw)
@@ -209,6 +234,7 @@ def _create_llm_payload(
 
 
 def _run_llm_analysis(parsed: Dict[str, Any], model: str) -> Dict[str, Any]:
+    """Perform phishing analysis using an OpenAI LLM."""
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise HTTPException(

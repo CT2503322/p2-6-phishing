@@ -105,8 +105,12 @@ Git
     python -m venv .venv
     source .venv/bin/activate  # On Windows, use `.venv\Scripts\activate`
 
-    # Install dependencies
+    # Install dependencies 
     pip install -r requirements.txt
+
+    # Add your OpenAI API key to a file named .env.local in the project root, two
+    levels above the main script 
+      
     ```
 
 3.  **Start the development servers:**

@@ -98,8 +98,6 @@ def train_decision_tree(data):
     )
 
     clf.fit(X_train, y_train)
-    #y_pred = clf.predict(X_test)
-    #print(classification_report(y_test, y_pred))
     return clf
 
 """
