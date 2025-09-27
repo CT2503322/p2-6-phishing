@@ -295,6 +295,12 @@ def main():
         )
     with settings_columns[1]:
         if detection_method == "ML":
+            ml_labels = {
+                "naivebayes_complement": "Naive Bayes (Complement)",
+                "naivebayes_multinomial": "Naive Bayes (Multinomial)",
+                "logistic_regression": "Logistic Regression",
+                "decision_tree": "Decision Tree",
+            }
             ml_model = st.selectbox(
                 "Select ML model",
                 options=[
@@ -303,6 +309,7 @@ def main():
                     "logistic_regression",
                     "decision_tree",
                 ],
+                format_func=lambda x: ml_labels.get(x, x),
                 help="Choose the specific ML model to use",
             )
         elif detection_method == "LLM":
@@ -521,7 +528,7 @@ def main():
             })
 
         df = pd.DataFrame(rows).sort_values(by="File Name").reset_index(drop=True)
-        st.dataframe(df, width='stretch')
+        st.dataframe(df, width=None)
 
         st.caption("Click a file below to view detailed findings.")
         for fname, bundle in sorted(st.session_state["multi_analysis_results"].items()):
@@ -557,8 +564,8 @@ def main():
                     st.write("**Highlighted Email Content:**")
                     st.markdown(analysis["highlighted_body"], unsafe_allow_html=True)
 
-                with st.expander("Parsed Email Data (raw JSON)"):
-                    st.json(parsed)
+            with st.expander("Parsed Email Data (raw JSON)"):
+                st.json(parsed)
 
         st.markdown("</div>", unsafe_allow_html=True)
 

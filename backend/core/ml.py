@@ -1,6 +1,7 @@
 import pandas as pd
 import os
 import joblib
+import random
 
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import make_pipeline
@@ -58,9 +59,15 @@ def train_nb_complement(data):
     clf.fit(X_train, y_train)
     return clf
 
-# Trains a Naive Bayes(MultinomialNB version) model on data provided. Better for unbalanced data such as the Kaggle dataset
+# Trains a Naive Bayes(MultinomialNB version) model on data provided. Better for balanced data, hence the limit of legit vs phishing emails have been perfectly balanced. As all things should be.
 def train_nb_multinomial(data):
-    X_train, X_test, y_train, y_test = prepare_data_split(data)
+    ham_samples = [d for d in data if d["label"] == "ham"]
+    spam_samples = [d for d in data if d["label"] == "spam"]
+    if len(ham_samples) > 1396:
+        ham_samples = random.sample(ham_samples, 1396)
+    data_balanced = ham_samples + spam_samples
+
+    X_train, X_test, y_train, y_test = prepare_data_split(data_balanced)
 
     clf = make_pipeline(
         TfidfVectorizer(ngram_range=(1,2), min_df=2),
@@ -168,4 +175,4 @@ if __name__ == "__main__":
     output_lr = predict_phishing("Congratulations! You've won a lottery of $1,000,000. Click here to claim your prize.", lr_model)
     output_dt = predict_phishing("Congratulations! You've won a lottery of $1,000,000. Click here to claim your prize.", dt_model)
 
-    print(f"Naive Bayes (ComplementNB): {output_nbc["label"]}, {output_nbc["percent"]}% \nNaive Bayes (MultinomialNB): {output_nbm["label"]}, {output_nbm["percent"]}% \nLogistic Regression: {output_lr["label"]}, {output_lr["percent"]}% \nDecision Tree: {output_dt['label']}, {output_dt['percent']}%")
+    print(f"Naive Bayes (ComplementNB): {output_nbc['label']}, {output_nbc['percent']}% \nNaive Bayes (MultinomialNB): {output_nbm['label']}, {output_nbm['percent']}% \nLogistic Regression: {output_lr['label']}, {output_lr['percent']}% \nDecision Tree: {output_dt['label']}, {output_dt['percent']}%")
