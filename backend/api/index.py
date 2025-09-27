@@ -110,7 +110,7 @@ async def analyze_algorithmic(data: dict):
 @app.post("/analyze/ml")
 async def analyze_ml(data: dict):
     parsed = data["parsed"]
-    ml_model = data["ml_model"]
+    ml_model = data.get("ml_model", "naivebayes_complement")
     try:
         body_text = parsed.get("body", "")
 
