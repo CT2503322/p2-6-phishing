@@ -1,80 +1,124 @@
+from __future__ import annotations
+
 from backend.core.lexical_score import lexical_score
 from backend.core.attachment_checks import archive_name_suspicious, is_dangerous
 from backend.core.helpers import norm_domain, parse_core_addresses
 from backend.core.identity_checks import is_freemx, is_idn_or_confusable, mentions_brand
 from backend.core.routing_checks import msgid_domain_mismatch, received_anomaly
-from backend.core.url_checks import WHITELIST_DOMAINS, check_urls, anchor_text_domain_mismatch, is_high_risk_tld, is_shortener, looks_credential_harvest
+from backend.core.url_checks import WHITELIST_DOMAINS, check_urls
 
 
 def label_from(score):
-    """Label based on score.
-    """
+    """Label based on score."""
     if score >= 10:
         return 'HIGH'
-    elif score >= 5:
+    if score >= 5:
         return 'MEDIUM'
-    else:
-        return 'LOW'
+    return 'LOW'
+
+
+def _address_domains(address: str | None) -> tuple[str | None, str | None]:
+    if not address or '@' not in address:
+        return None, None
+    host = address.split('@', 1)[1]
+    return (
+        norm_domain(host, keep_subdomains=True),
+        norm_domain(host),
+    )
 
 
 def score_email(headers, body_text, urls, attachments):
-    """Main scoring function that combines all heuristics from the parsed EML file.
-    Returns label, score, explanations, matched_keywords, suspicious_urls.
+    """Combine heuristics to produce a phishing score.
+
+    Returns (label, score, explanations, matched_keywords, suspicious_urls).
     """
     score = 0
-    explanations = []
-    matched_keywords = []
+    explanations: list[str] = []
+    matched_keywords: list[str] = []
+
     from_addr, reply_to, return_path = parse_core_addresses(headers)
-    from_dom = norm_domain(from_addr.split('@')[1]) if from_addr and '@' in from_addr else None
-    rt_dom = norm_domain(reply_to.split('@')[1]) if reply_to and '@' in reply_to else None
-    rp_dom = norm_domain(return_path.split('@')[1]) if return_path and '@' in return_path else None
+    from_host, from_dom = _address_domains(from_addr)
+    reply_host, reply_dom = _address_domains(reply_to)
+    return_host, return_dom = _address_domains(return_path)
 
     # Identity
-    if rt_dom and rt_dom != from_dom:
+    if reply_dom and from_dom and reply_dom != from_dom:
         score += 3
-        explanations.append(f"+3 points: Reply-to domain differs from From domain ({rt_dom})")
-    if rp_dom and rp_dom != from_dom:
+        explanations.append(
+            f"+3 points: Reply-to domain differs from From domain ({reply_dom})"
+        )
+    if return_dom and from_dom and return_dom != from_dom:
         score += 2
-        explanations.append(f"+2 points: Return-path domain differs from From domain ({rp_dom})")
-    if reason := is_idn_or_confusable(from_dom):
+        explanations.append(
+            f"+2 points: Return-path domain differs from From domain ({return_dom})"
+        )
+    confusable_target = from_host or from_dom
+    if confusable_target and (reason := is_idn_or_confusable(confusable_target)):
         score += 3
-        explanations.append(f"+3 points: From domain contains IDN or confusable characters ({reason} in {from_dom})")
-    if is_freemx(from_dom) and (mentioned_brands := mentions_brand(headers.get('subject', ''), body_text)):
-        score += 2
-        explanations.append(f"+2 points: Free email provider ({from_dom}) with brand mention ({', '.join(mentioned_brands)})")
+        explanations.append(
+            f"+3 points: From domain contains IDN or confusable characters ({reason} in {confusable_target})"
+        )
+    if from_dom and is_freemx(from_dom):
+        mentioned_brands = mentions_brand(headers.get('subject', ''), body_text)
+        if mentioned_brands:
+            score += 2
+            explanations.append(
+                f"+2 points: Free email provider ({from_dom}) with brand mention ({', '.join(mentioned_brands)})"
+            )
 
     # Routing
-    if anomaly_reason := received_anomaly(headers.getall('received') if hasattr(headers, 'getall') else []):
-        score += 2
-        explanations.append(f"+2 points: Anomalous Received headers ({anomaly_reason})")
+    received_values = []
+    if hasattr(headers, 'getall'):
+        try:
+            received_values = headers.getall('received')  # type: ignore[attr-defined]
+        except Exception:
+            received_values = []
+    else:
+        received_header = headers.get('received') if isinstance(headers, dict) else None
+        if isinstance(received_header, (list, tuple)):
+            received_values = list(received_header)
+        elif received_header:
+            received_values = [received_header]
+    if received_values:
+        if anomaly_reason := received_anomaly(received_values):
+            score += 2
+            explanations.append(f"+2 points: Anomalous Received headers ({anomaly_reason})")
     mismatched_msgid_dom = msgid_domain_mismatch(headers.get('message-id'), from_dom)
     if mismatched_msgid_dom:
         score += 1
         explanations.append(f"+1 point: Message-ID domain mismatch ({mismatched_msgid_dom})")
 
     # Lexical
-    lex_score, matched_keywords = lexical_score(headers.get('subject',''), body_text)
-    score += lex_score
-    if matched_keywords:
-        explanations.append(f"+{lex_score} points: Matched phishing keywords ({', '.join(matched_keywords)})")
+    lex_score, matched_phrases, matched_descriptions = lexical_score(headers.get('subject', ''), body_text)
+    matched_keywords = matched_phrases
+    if lex_score:
+        score += lex_score
+        descriptor_text = ', '.join(matched_descriptions) if matched_descriptions else ', '.join(matched_phrases)
+        explanations.append(
+            f"+{lex_score} points: Matched phishing language ({descriptor_text})"
+        )
 
     # URLs
-    suspicious_urls = check_urls(urls)
-    for u, reasons in suspicious_urls:
-        url_str = u.geturl()
-        reason_str = "; ".join(reasons)
-        points_added = 0
-        if anchor_text_domain_mismatch(u):
-            points_added += 3
-        if is_high_risk_tld(u.hostname):
-            points_added += 2
-        if is_shortener(u.hostname):
-            points_added += 1
-        if looks_credential_harvest(u.path, u.query):
-            points_added += 2
-        score += points_added
-        if points_added > 0:
-            explanations.append(f"+{points_added} points: Suspicious URL {url_str} ({reason_str})")
+    suspicious_urls = check_urls(urls, sender_domain=from_host)
+    url_points_applied = 0
+    for finding in suspicious_urls:
+        url = finding.get('url')
+        reasons = finding.get('reasons') or []
+        raw_points = int(finding.get('score', 0) or 0)
+        if not url or raw_points <= 0:
+            continue
+        applied = min(raw_points, 4)
+        if url_points_applied + applied > 8:
+            applied = max(0, 8 - url_points_applied)
+        if applied <= 0:
+            continue
+        url_points_applied += applied
+        score += applied
+        url_str = url.geturl()
+        reason_str = '; '.join(reasons)
+        explanations.append(
+            f"+{applied} points: Suspicious URL {url_str} ({reason_str})"
+        )
 
     # Attachments
     for att in attachments:

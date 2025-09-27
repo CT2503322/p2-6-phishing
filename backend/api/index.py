@@ -4,8 +4,11 @@ import tempfile
 import html
 import re
 import json
+import hashlib
+import time
 from openai import OpenAI
 from dotenv import load_dotenv
+from typing import Any, Dict, Tuple
 
 # Load environment variables from .env.local or .env in project root
 env_path = os.path.join(os.path.dirname(__file__), "..", "..", ".env.local")
@@ -40,14 +43,207 @@ def highlight_body(body_text, matched_keywords, suspicious_urls):
             flags=re.IGNORECASE,
         )
     # Highlight suspicious URLs
-    for u, reasons in suspicious_urls:
-        url_str = u.geturl()
-        reason_str = "; ".join(reasons)
+    for entry in suspicious_urls:
+        if isinstance(entry, dict):
+            url_obj = entry.get('url')
+            reasons = entry.get('reasons', [])
+        elif isinstance(entry, (tuple, list)) and len(entry) >= 2:
+            url_obj, reasons = entry[0], entry[1]
+        else:
+            continue
+        if not url_obj:
+            continue
+        url_str = url_obj.geturl()
+        reason_str = '; '.join(str(reason) for reason in reasons if reason)
         escaped_url = html.escape(url_str)
+        title_attr = html.escape(reason_str) if reason_str else 'Suspicious link'
         highlighted = highlighted.replace(
-            escaped_url, f'<mark title="{reason_str}">{escaped_url}</mark>'
+            escaped_url, f'<mark title="{title_attr}">{escaped_url}</mark>'
         )
     return highlighted
+
+
+
+def _clone_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    return json.loads(json.dumps(payload))
+
+
+SUPPORTED_LLM_MODELS = ("gpt-5-nano", "gpt-4.1-nano", "gpt-4o-mini")
+DEFAULT_LLM_MODEL = SUPPORTED_LLM_MODELS[0]
+LLM_CACHE_TTL_SECONDS = int(os.getenv("LLM_CACHE_TTL", "300"))
+_LLM_CACHE: Dict[Tuple[str, str], Tuple[float, Dict[str, Any]]] = {}
+
+
+def _normalize_parsed_email(parsed: Dict[str, Any]) -> str:
+    try:
+        return json.dumps(parsed, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    except TypeError:
+        return json.dumps(parsed, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str)
+
+
+def _hash_parsed_email(parsed: Dict[str, Any]) -> str:
+    return hashlib.sha256(_normalize_parsed_email(parsed).encode("utf-8")).hexdigest()
+
+
+def _cache_key(model: str, digest: str) -> Tuple[str, str]:
+    return model, digest
+
+
+def _get_cached_llm_payload(model: str, digest: str) -> Dict[str, Any] | None:
+    entry = _LLM_CACHE.get(_cache_key(model, digest))
+    if not entry:
+        return None
+    timestamp, payload = entry
+    if time.monotonic() - timestamp <= LLM_CACHE_TTL_SECONDS:
+        return _clone_payload(payload)
+    _LLM_CACHE.pop(_cache_key(model, digest), None)
+    return None
+
+
+def _set_cached_llm_payload(model: str, digest: str, payload: Dict[str, Any]) -> None:
+    _LLM_CACHE[_cache_key(model, digest)] = (time.monotonic(), _clone_payload(payload))
+
+
+def _validate_llm_model(model: str) -> None:
+    if model not in SUPPORTED_LLM_MODELS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported model: {model}. Supported: {list(SUPPORTED_LLM_MODELS)}",
+        )
+
+
+def _build_llm_prompt(
+    email_from: str,
+    email_subject: str,
+    email_body: str,
+    email_attachments: Any,
+    email_urls: list,
+) -> str:
+    url_list = [url.geturl() for url in email_urls] or []
+    lines = [
+        "You are an expert at detecting phishing emails. Analyze the following email carefully and provide a detailed assessment focusing on specific phishing indicators.",
+        "",
+        "**Email Details:**",
+        f"- From: {email_from}",
+        f"- Subject: {email_subject}",
+        f"- Body: {email_body}",
+        f"- Attachments: {email_attachments}",
+        f"- URLs found in body: {url_list}",
+        "",
+        "**Common phishing indicators to look for:**",
+        "- Spoofed or suspicious sender information",
+        "- Urgent or threatening language",
+        "- Requests for personal/sensitive information",
+        "- Suspicious URLs (phishing links, shortened URLs, etc.)",
+        "- Mismatched or abnormal headers",
+        "- Unexpected attachments",
+        "- Poor grammar or unprofessional language",
+        "- Generic greetings or personalization issues",
+        "- Too-good-to-be-true offers or scams",
+        "",
+        "**Task:**",
+        "Provide your analysis in the following JSON format only (no additional text):",
+        "{",
+        '  "probability": <integer 0-100, percentage likelihood this is phishing>,',
+        '  "indicators": ["specific red flag 1", "specific red flag 2", ...],',
+        '  "reasoning": "brief overall explanation"',
+        "}",
+        "",
+        "Be precise and focus on concrete evidence from the email.",
+    ]
+    return "\n".join(lines)
+
+
+
+def _call_llm_model(client: OpenAI, model: str, prompt: str) -> str:
+    response = client.chat.completions.create(
+        model=model, messages=[{"role": "system", "content": prompt}], stream=True
+    )
+    full_response = ""
+    for chunk in response:
+        if chunk.choices[0].delta.content:
+            full_response += chunk.choices[0].delta.content
+    return full_response
+
+
+def _parse_llm_json(raw_response: str) -> Dict[str, Any]:
+    try:
+        return json.loads(raw_response.strip()) if raw_response.strip() else {}
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=422, detail=f"Failed to parse LLM response: {raw_response}"
+        ) from exc
+
+
+def _create_llm_payload(
+    parsed: Dict[str, Any],
+    model: str,
+    llm_analysis: Dict[str, Any],
+    email_body: str,
+    email_urls: list,
+) -> Dict[str, Any]:
+    probability_raw = llm_analysis.get("probability", 0)
+    try:
+        probability = float(probability_raw)
+    except (TypeError, ValueError):
+        probability = 0.0
+    label = "phishing" if probability > 50 else "safe"
+    score = probability / 100.0
+
+    indicators = llm_analysis.get("indicators", []) or []
+    reasoning = llm_analysis.get("reasoning", "")
+
+    explanations = []
+    if isinstance(indicators, list):
+        explanations.extend([f"Suspicious indicator: {ind}" for ind in indicators])
+    if reasoning:
+        explanations.append(f"LLM reasoning: {reasoning}")
+
+    return {
+        "label": label,
+        "score": score,
+        "explanations": explanations,
+        "detection_method": "LLM",
+        "llm_model": model,
+    }
+
+
+def _run_llm_analysis(parsed: Dict[str, Any], model: str) -> Dict[str, Any]:
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=500, detail="OPENAI_API_KEY environment variable not set"
+        )
+
+    client = OpenAI(api_key=api_key)
+
+    email_from = parsed.get("from", "")
+    email_subject = parsed.get("subject", "")
+    email_body = parsed.get("body", "")
+    email_attachments = parsed.get("attachments", "")
+    email_urls = extract_urls(email_body)
+
+    prompt = _build_llm_prompt(
+        email_from,
+        email_subject,
+        email_body,
+        email_attachments,
+        email_urls,
+    )
+
+    raw_response = _call_llm_model(client, model, prompt)
+    llm_analysis = _parse_llm_json(raw_response)
+    return _create_llm_payload(parsed, model, llm_analysis, email_body, email_urls)
+
+
+def _get_or_create_llm_result(parsed: Dict[str, Any], model: str) -> Dict[str, Any]:
+    digest = _hash_parsed_email(parsed)
+    cached = _get_cached_llm_payload(model, digest)
+    if cached:
+        return cached
+    payload = _run_llm_analysis(parsed, model)
+    _set_cached_llm_payload(model, digest, payload)
+    return payload
 
 
 @app.get("/health")
@@ -113,6 +309,14 @@ async def analyze_ml(data: dict):
     ml_model = data.get("ml_model", "naivebayes_complement")
     try:
         body_text = parsed.get("body", "")
+        headers = {
+            "from": parsed.get("from", ""),
+            "reply-to": parsed.get("reply-to", ""),
+            "return-path": parsed.get("return-path", ""),
+            "subject": parsed.get("subject", ""),
+            "message-id": parsed.get("message_id", ""),
+            "received": parsed.get("received", ""),
+        }
 
         model = None
         model_name_map = {
@@ -134,14 +338,33 @@ async def analyze_ml(data: dict):
 
         mlguess = predict_phishing(body_text, model)
 
+        urls = extract_urls(body_text)
+        attachments_value = parsed.get("attachments", "")
+        if isinstance(attachments_value, (list, tuple)):
+            attachments = list(attachments_value)
+        elif attachments_value:
+            attachments = [attachments_value]
+        else:
+            attachments = []
+
+        heur_label, heur_score, heur_explanations, matched_keywords, suspicious_urls = score_email(
+            headers, body_text, urls, attachments
+        )
+        explanations = list(heur_explanations) if heur_explanations else [
+            f"Heuristic cross-check score {heur_score} ({heur_label})."
+        ]
+        highlighted_body = highlight_body(body_text, matched_keywords, suspicious_urls)
+
         return JSONResponse(
             {
                 "label": mlguess["label"],
                 "score": mlguess["percent"],
-                "explanations": ["N/A"],
-                "highlighted_body": body_text,
+                "explanations": explanations,
+                "highlighted_body": highlighted_body,
                 "detection_method": "ML",
                 "ml_model": ml_model,
+                "heuristic_label": heur_label,
+                "heuristic_score": heur_score,
             }
         )
     except Exception as e:
@@ -151,126 +374,43 @@ async def analyze_ml(data: dict):
 @app.post("/analyze/llm")
 async def analyze_llm(data: dict):
     parsed = data["parsed"]
-    model = data.get("model", "gpt-5-nano")
-    supported_models = ["gpt-5-nano", "gpt-4.1-nano", "gpt-4o-mini"]
-    if model not in supported_models:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported model: {model}. Supported: {supported_models}",
-        )
-
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise HTTPException(
-            status_code=500, detail="OPENAI_API_KEY environment variable not set"
-        )
+    model = data.get("model", DEFAULT_LLM_MODEL)
+    _validate_llm_model(model)
 
     try:
-        client = OpenAI(api_key=api_key)
-
-        # Extract email details
-        email_from = parsed.get("from", "")
-        email_subject = parsed.get("subject", "")
-        email_body = parsed.get("body", "")
-        email_attachments = parsed.get("attachments", "")
-        email_urls = extract_urls(email_body)
-
-        # Craft prompt for phishing analysis
-        prompt = f"""You are an expert at detecting phishing emails. Analyze the following email carefully and provide a detailed assessment focusing on specific phishing indicators.
-
-**Email Details:**
-- From: {email_from}
-- Subject: {email_subject}
-- Body: {email_body}
-- Attachments: {email_attachments}
-- URLs found in body: {[url.geturl() for url in email_urls] or []}
-
-**Common phishing indicators to look for:**
-- Spoofed or suspicious sender information
-- Urgent or threatening language
-- Requests for personal/sensitive information
-- Suspicious URLs (phishing links, shortened URLs, etc.)
-- Mismatched or abnormal headers
-- Unexpected attachments
-- Poor grammar or unprofessional language
-- Generic greetings or personalization issues
-- Too-good-to-be-true offers or scams
-
-**Task:**
-Provide your analysis in the following JSON format only (no additional text):
-{{
-  "probability": <integer 0-100, percentage likelihood this is phishing>,
-  "indicators": ["specific red flag 1", "specific red flag 2", ...],
-  "reasoning": "brief overall explanation"
-}}
-
-Be precise and focus on concrete evidence from the email."""
-
-        # Call OpenAI API with streaming
-        response = client.chat.completions.create(
-            model=model, messages=[{"role": "system", "content": prompt}], stream=True
-        )
-
-        # Collect streaming response
-        full_response = ""
-        for chunk in response:
-            if chunk.choices[0].delta.content:
-                full_response += chunk.choices[0].delta.content
-
-        # Parse the JSON response
-        try:
-            llm_analysis = json.loads(full_response.strip())
-            probability = llm_analysis.get("probability", 0)
-            indicators = llm_analysis.get("indicators", [])
-            reasoning = llm_analysis.get("reasoning", "")
-        except json.JSONDecodeError:
-            raise HTTPException(
-                status_code=422, detail=f"Failed to parse LLM response: {full_response}"
-            )
-
-        # Determine label based on probability
-        label = "phishing" if probability > 50 else "safe"
-        score = (
-            probability / 100.0
-        )  # Convert to 0-1 for consistency with other endpoints
-
-        # Create explanations combining indicators and reasoning
-        explanations = []
-        if indicators:
-            explanations.extend([f"Suspicious indicator: {ind}" for ind in indicators])
-        if reasoning:
-            explanations.append(f"LLM reasoning: {reasoning}")
-
-        # Extract suspicious elements for highlighting
-        matched_keywords = []
-        suspicious_urls = []
-
-        # Find keywords from indicators that appear in body
-        body_lower = email_body.lower()
-        for ind in indicators:
-            possible_keywords = re.findall(r"\b[^\s]+\b", ind.lower())
-            for kw in possible_keywords:
-                if kw in body_lower:
-                    matched_keywords.append(kw)
-
-        # Find suspicious URLs mentioned in indicators
-        for ind in indicators:
-            for url in email_urls:
-                url_str = url.geturl()
-                if url_str.lower() in ind.lower():
-                    suspicious_urls.append((url, [f"LLM-detected: {ind}"]))
-
-        return JSONResponse(
-            {
-                "label": label,
-                "score": score,
-                "explanations": explanations,
-                "detection_method": "LLM",
-                "llm_model": model,
-            }
-        )
-
+        payload = _get_or_create_llm_result(parsed, model)
+        return JSONResponse(payload)
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=422, detail=f"LLM analysis error: {e}")
+
+
+@app.post("/analyze/llm/batch")
+async def analyze_llm_batch(data: dict):
+    items = data.get("items")
+    if not isinstance(items, list) or not items:
+        raise HTTPException(status_code=400, detail="`items` must be a non-empty list")
+
+    default_model = data.get("model", DEFAULT_LLM_MODEL)
+    _validate_llm_model(default_model)
+
+    results = []
+    try:
+        for item in items:
+            if not isinstance(item, dict):
+                raise HTTPException(status_code=422, detail="Each batch item must be a dict")
+            parsed = item.get("parsed")
+            if not isinstance(parsed, dict):
+                raise HTTPException(status_code=422, detail="Each item must include a 'parsed' payload")
+            model = item.get("model", default_model)
+            _validate_llm_model(model)
+            results.append(_get_or_create_llm_result(parsed, model))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=422, detail=f"LLM batch analysis error: {e}")
+
+    return JSONResponse({"results": results})
+
+
