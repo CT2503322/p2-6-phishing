@@ -38,8 +38,8 @@ def main():
                 --primary-color: #2563eb;
                 --primary-dark: #1e40af;
                 --accent-color: #22d3ee;
-                --surface-color: rgba(15, 23, 42, 0.65);
-                --surface-hover: rgba(15, 23, 42, 0.75);
+                --surface-color: rgba(30, 58, 138, 0.28);
+                --surface-hover: rgba(30, 58, 138, 0.33);
                 --border-subtle: rgba(148, 163, 184, 0.25);
                 --text-strong: #e2e8f0;
                 --text-muted: #94a3b8;
@@ -66,35 +66,42 @@ def main():
                 box-shadow: var(--shadow-elevated);
                 margin-bottom: 2.5rem;
             }
+
             .banner .logo-wrap {
                 width: 96px;
                 height: 96px;
-                border-radius: 24px;
-                background: rgba(15, 23, 42, 0.2);
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.9);
                 display: grid;
                 place-items: center;
+                overflow: hidden;
             }
+
             .banner .logo-wrap img {
-                width: 72px;
-                height: 72px;
-                object-fit: contain;
+                width: 140%;
+                height: 140%;
+                object-fit: cover; 
             }
+
             .banner-text {
                 display: flex;
                 flex-direction: column;
-                gap: 0.35rem;
+                justify-content:center;  
             }
+
             .banner h1 {
                 font-size: 2.6rem;
                 font-weight: 700;
                 margin: 0;
                 color: #ffffff;
             }
+
             .banner .tagline {
                 margin: 0;
                 font-size: 1.05rem;
                 color: rgba(226, 232, 240, 0.85);
             }
+
             .banner .badge {
                 background: rgba(15, 23, 42, 0.25);
                 color: #e0f2fe;
@@ -105,17 +112,20 @@ def main():
                 border: 1px solid rgba(224, 242, 254, 0.4);
                 white-space: nowrap;
             }
+
             .page-intro {
                 font-size: 1.75rem;
                 font-weight: 600;
                 margin-bottom: 0.35rem;
             }
+
             .page-description {
                 font-size: 1rem;
                 color: var(--text-muted);
                 margin-bottom: 1.8rem;
                 max-width: 780px;
             }
+
             .card {
                 background: var(--surface-color);
                 border-radius: var(--radius-lg);
@@ -125,29 +135,35 @@ def main():
                 box-shadow: 0 18px 45px rgba(15, 23, 42, 0.35);
                 backdrop-filter: blur(12px);
             }
+
             .card:hover {
                 background: var(--surface-hover);
             }
+
             .card h3 {
                 margin-top: 0;
                 margin-bottom: 0.25rem;
                 font-size: 1.35rem;
                 font-weight: 650;
             }
+
             .card .card-description {
                 margin-bottom: 1.2rem;
                 color: var(--text-muted);
             }
+
             .selection-hint {
                 color: var(--text-muted);
                 padding-top: 0.75rem;
                 font-size: 0.95rem;
             }
+
             .section-heading {
                 font-size: 1.05rem;
                 font-weight: 600;
                 margin: 1.2rem 0 0.6rem;
             }
+
             .stButton > button {
                 background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
                 color: #f8fafc;
@@ -158,31 +174,38 @@ def main():
                 letter-spacing: 0.02em;
                 box-shadow: 0 20px 40px rgba(37, 99, 235, 0.35);
             }
+
             .stButton > button:hover {
                 background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
             }
+
             .stSelectbox label, .stRadio label, .stTextArea label {
                 font-weight: 600 !important;
                 color: var(--text-strong) !important;
             }
+
             div[data-baseweb="select"] > div {
                 background: rgba(15, 23, 42, 0.55);
                 border-radius: var(--radius-md);
                 border: 1px solid var(--border-subtle);
             }
+
             div[data-baseweb="select"] > div:hover {
                 border-color: rgba(96, 165, 250, 0.8);
             }
+
             .stTextArea textarea {
                 background: rgba(15, 23, 42, 0.55);
                 border-radius: var(--radius-md);
                 border: 1px solid var(--border-subtle);
                 color: var(--text-strong);
             }
+
             .stTextArea textarea:focus {
                 border-color: rgba(96, 165, 250, 0.9);
                 box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.45);
             }
+
             [data-testid="stFileUploaderDropzone"] {
                 border-radius: var(--radius-lg);
                 background: rgba(15, 23, 42, 0.5);
@@ -190,9 +213,11 @@ def main():
                 padding: 1.25rem 1rem;
                 transition: border 0.2s ease, background 0.2s ease;
             }
+
             [data-testid="stFileUploaderDropzone"]:hover {
                 border-color: rgba(96, 165, 250, 0.85);
             }
+
             .stRadio div[role="radiogroup"] > label {
                 border-radius: var(--radius-md);
                 border: 1px solid transparent;
@@ -200,45 +225,56 @@ def main():
                 padding: 0.55rem 0.85rem;
                 transition: border 0.2s ease, background 0.2s ease;
             }
+
             .stRadio div[role="radiogroup"] > label:hover {
                 border-color: rgba(96, 165, 250, 0.45);
             }
+
             .stProgress > div > div {
                 background: var(--accent-color);
             }
+
             [data-testid="stMetricValue"] {
                 color: #f8fafc;
             }
+
             .streamlit-expanderHeader {
                 background: rgba(15, 23, 42, 0.4);
                 border-radius: var(--radius-md);
                 color: var(--text-strong);
                 border: 1px solid var(--border-subtle);
             }
+
             [data-testid="stDataFrame"] > div:nth-child(1) > div {
                 border-radius: var(--radius-md);
                 border: 1px solid var(--border-subtle);
             }
+
             .stAlert {
                 border-radius: var(--radius-md);
             }
+
             div[data-testid="stMarkdown"] ul {
                 padding-left: 1.2rem;
                 margin-bottom: 0.75rem;
             }
+
             div[data-testid="stMarkdown"] li {
                 margin-bottom: 0.4rem;
                 overflow-wrap: anywhere;
                 word-break: break-word;
             }
+
             div[data-testid="stMarkdown"] li a {
                 overflow-wrap: anywhere;
                 word-break: break-all;
             }
+
             div[data-testid="stMarkdown"] a {
                 overflow-wrap: anywhere;
                 word-break: break-all;
             }
+            
         </style>
     """
     st.markdown(custom_css, unsafe_allow_html=True)
