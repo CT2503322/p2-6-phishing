@@ -564,7 +564,7 @@ def main():
             })
 
         df = pd.DataFrame(rows).sort_values(by="File Name").reset_index(drop=True)
-        st.dataframe(df, width=None)
+        st.dataframe(df, width="content")
 
         st.caption("Click a file below to view detailed findings.")
         for fname, bundle in sorted(st.session_state["multi_analysis_results"].items()):
