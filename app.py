@@ -553,7 +553,7 @@ def main():
             rows.append({
                 "File Name": fname,
                 "Legitimate / Phishing": label,
-                "Phishing Likelihood (%)": None if pct is None else round(pct, 0),
+                "Confidence Rating (%)": None if pct is None else round(pct, 0),
             })
 
         df = pd.DataFrame(rows).sort_values(by="File Name").reset_index(drop=True)
@@ -577,7 +577,7 @@ def main():
                 with col2:
                     pct = compute_score_percent(analysis.get("score", "N/A"))
                     if pct is not None:
-                        st.metric("Phishing Likelihood", f"{pct:.0f}%")
+                        st.metric("Confidence Rating", f"{pct:.0f}%")
                         st.progress(pct / 100, "Likelihood of Phishing")
                     else:
                         st.write(f"**Likelihood:** {analysis.get('score', 'N/A')}")

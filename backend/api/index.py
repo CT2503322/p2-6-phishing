@@ -75,6 +75,11 @@ def _clone_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     return json.loads(json.dumps(payload))
 
 
+
+"""
+LLM
+"""
+
 # Constants for supported LLM models
 SUPPORTED_LLM_MODELS = ("gpt-5-nano", "gpt-4.1-nano", "gpt-4o-mini")
 DEFAULT_LLM_MODEL = SUPPORTED_LLM_MODELS[0]
@@ -84,6 +89,7 @@ LLM_CACHE_TTL_SECONDS = int(os.getenv("LLM_CACHE_TTL", "300"))
 _LLM_CACHE: Dict[Tuple[str, str], Tuple[float, Dict[str, Any]]] = {}
 
 
+#Helpers
 def _normalize_parsed_email(parsed: Dict[str, Any]) -> str:
     """Normalize parsed email for consistent hashing (sort keys, compact)."""
     try:
@@ -98,12 +104,12 @@ def _hash_parsed_email(parsed: Dict[str, Any]) -> str:
 
 
 def _cache_key(model: str, digest: str) -> Tuple[str, str]:
-    """Builds a key used for caching LLM results."""
+    """Builds a key used for caching diff LLM results w same email."""
     return model, digest
 
 
 def _get_cached_llm_payload(model: str, digest: str) -> Dict[str, Any] | None:
-    """Retrieve cached LLM result if within TTL."""
+    """Check if results for (email,model) paid has expired -> Used to skip redundant LLM calls."""
     entry = _LLM_CACHE.get(_cache_key(model, digest))
     if not entry:
         return None
@@ -115,11 +121,12 @@ def _get_cached_llm_payload(model: str, digest: str) -> Dict[str, Any] | None:
 
 
 def _set_cached_llm_payload(model: str, digest: str, payload: Dict[str, Any]) -> None:
+    """Save a new result in the cache"""
     _LLM_CACHE[_cache_key(model, digest)] = (time.monotonic(), _clone_payload(payload))
 
 
 def _validate_llm_model(model: str) -> None:
-    """Ensure the LLM model is supported, else raise HTTP error."""
+    """Checks is requested model is allowed, else raise HTTP error.""" 
     if model not in SUPPORTED_LLM_MODELS:
         raise HTTPException(
             status_code=400,
@@ -136,7 +143,8 @@ def _build_llm_prompt(
 ) -> str:
     
     """
-    Generate the prompt for the LLM to analyze phishing likelihood based on email content.
+    Generate the text prompt to send to the model asking 
+    it to evaluate if an email is phishing.
     """
 
     url_list = [url.geturl() for url in email_urls] or []
@@ -188,7 +196,7 @@ def _call_llm_model(client: OpenAI, model: str, prompt: str) -> str:
 
 
 def _parse_llm_json(raw_response: str) -> Dict[str, Any]:
-    """Convert LLM string response to JSON dictionary."""
+    """Convert outputted json text to usable python data."""
     try:
         return json.loads(raw_response.strip()) if raw_response.strip() else {}
     except json.JSONDecodeError as exc:
@@ -234,7 +242,18 @@ def _create_llm_payload(
 
 
 def _run_llm_analysis(parsed: Dict[str, Any], model: str) -> Dict[str, Any]:
-    """Perform phishing analysis using an OpenAI LLM."""
+    """
+    Perform phishing analysis using an OpenAI LLM.
+
+        Loads OpenAI API key
+        Extracts email fields (from, subject, body, etc.)
+        Extracts URLs from the email body
+        Builds the prompt → _build_llm_prompt(...)
+        Calls the model → _call_llm_model(...)
+        Parses the LLM response → _parse_llm_json(...)
+        Builds the final output → _create_llm_payload(...)
+    """
+
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise HTTPException(
@@ -263,6 +282,7 @@ def _run_llm_analysis(parsed: Dict[str, Any], model: str) -> Dict[str, Any]:
 
 
 def _get_or_create_llm_result(parsed: Dict[str, Any], model: str) -> Dict[str, Any]:
+    """Checks if a result for that hash and model is cached -> avoid re-processing"""
     digest = _hash_parsed_email(parsed)
     cached = _get_cached_llm_payload(model, digest)
     if cached:
@@ -270,7 +290,7 @@ def _get_or_create_llm_result(parsed: Dict[str, Any], model: str) -> Dict[str, A
     payload = _run_llm_analysis(parsed, model)
     _set_cached_llm_payload(model, digest, payload)
     return payload
-
+ 
 
 @app.get("/health")
 def health():
@@ -399,6 +419,7 @@ async def analyze_ml(data: dict):
 
 @app.post("/analyze/llm")
 async def analyze_llm(data: dict):
+    """Parse email and start analysis"""
     parsed = data["parsed"]
     model = data.get("model", DEFAULT_LLM_MODEL)
     _validate_llm_model(model)
@@ -414,6 +435,7 @@ async def analyze_llm(data: dict):
 
 @app.post("/analyze/llm/batch")
 async def analyze_llm_batch(data: dict):
+    """Accepts a list of parsed emails"""
     items = data.get("items")
     if not isinstance(items, list) or not items:
         raise HTTPException(status_code=400, detail="`items` must be a non-empty list")
