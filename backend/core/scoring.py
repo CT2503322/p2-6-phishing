@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from backend.core.lexical_score import lexical_score
+from backend.core.position import score_keyword_positions
 from backend.core.attachment_checks import archive_name_suspicious, is_dangerous
 from backend.core.helpers import norm_domain, parse_core_addresses
 from backend.core.identity_checks import is_freemx, is_idn_or_confusable, mentions_brand
@@ -97,6 +98,15 @@ def score_email(headers, body_text, urls, attachments):
         explanations.append(
             f"+{lex_score} points: Matched phishing language ({descriptor_text})"
         )
+
+    # Keyword position weighting (subject/early body emphasis)
+    if matched_phrases:
+        pos_points, _, pos_hits = score_keyword_positions(headers.get('subject', ''), body_text, matched_phrases)
+        if pos_points:
+            score += pos_points
+            for hit in pos_hits:
+                loc = "subject" if hit.location == "subject" else ("early body" if hit.location == "early_body" else "body")
+                explanations.append(f"+{hit.points} points: Keyword '{hit.keyword}' in {loc}")
 
     # URLs
     suspicious_urls = check_urls(urls, sender_domain=from_host)
